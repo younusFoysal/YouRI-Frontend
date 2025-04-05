@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project, Organization } from '../types';
 import { Search, ArrowUpDown, Plus, X, Calendar, DollarSign, Clock } from 'lucide-react';
 import { format } from 'date-fns';
+import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
 interface ProjectListProps {
   organizationId?: string;
@@ -29,6 +30,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ organizationId, onSelectProje
     budget: 0
   });
   const [loading, setLoading] = useState(true);
+  const axiosSecure = useAxiosSecure();
 
   useEffect(() => {
     fetchProjects();
@@ -39,11 +41,11 @@ const ProjectList: React.FC<ProjectListProps> = ({ organizationId, onSelectProje
     try {
       setLoading(true);
       const url = organizationId 
-        ? `http://localhost:5000/api/projects?organizationId=${organizationId}`
-        : 'http://localhost:5000/api/projects';
+        ? `http://localhost:3000/api/v1/projects?organizationId=${organizationId}`
+        : 'http://localhost:3000/api/v1/projects';
       
-      const response = await fetch(url);
-      const data = await response.json();
+      const response = await axiosSecure.get(url);
+      const data = await response.data.data;
       setProjects(data);
       setLoading(false);
     } catch (error) {
@@ -54,8 +56,8 @@ const ProjectList: React.FC<ProjectListProps> = ({ organizationId, onSelectProje
 
   const fetchOrganizations = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/organizations');
-      const data = await response.json();
+      const response = await axiosSecure.get('/organizations/organizations');
+      const data = await response.data.data;
       setOrganizations(data);
       
       // If no organizationId is provided and we have organizations, set the first one as default
@@ -79,7 +81,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ organizationId, onSelectProje
   const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/projects', {
+      const response = await axiosSecure.post('http://localhost:3000/api/v1/projects', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,7 +89,7 @@ const ProjectList: React.FC<ProjectListProps> = ({ organizationId, onSelectProje
         body: JSON.stringify(newProject),
       });
 
-      if (response.ok) {
+      if (response.status === 201) {
         setShowAddModal(false);
         setNewProject({
           name: '',

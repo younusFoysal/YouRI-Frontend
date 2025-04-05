@@ -3,12 +3,14 @@ import {Project} from "../../types.ts";
 import {useEffect, useState} from "react";
 import {useAuth} from "../../context/AuthContext.tsx";
 import {useNavigate} from "react-router-dom";
+import useAxiosSecure from "../../hook/useAxiosSecure.ts";
 
 const Projects: React.FC = () => {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const { state } = useAuth();
   const navigate = useNavigate();
+  const axiosSecure = useAxiosSecure();
 
   useEffect(() => {
     if (!state.selectedOrganization) {
@@ -23,22 +25,15 @@ const Projects: React.FC = () => {
     if (!state.selectedOrganization) return;
 
     try {
-      const response = await fetch(
-          `http://localhost:5000/api/projects?organizationId=${state.selectedOrganization._id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${state.user?.token}`
-            }
-          }
-      );
+      const response = await axiosSecure.get(`/projects?organizationId=${state.selectedOrganization._id}`);
 
       console.log(response);
 
-      if (!response.ok) {
+      if (!response.status === 200) {
         throw new Error('Failed to fetch projects');
       }
 
-      const data = await response.json();
+      const data = await response?.data?.data;
       setProjects(data);
     } catch (error) {
       console.error('Error fetching projects:', error);

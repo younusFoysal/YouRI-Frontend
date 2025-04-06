@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Task, Employee, Project } from '../types';
 import { Search, ArrowUpDown, Plus, X, Calendar, Clock, Tag, User, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
 interface TaskListProps {
   projectId?: string;
@@ -35,6 +36,8 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
   });
   const [newTag, setNewTag] = useState('');
   const [loading, setLoading] = useState(true);
+  const axiosSecure = useAxiosSecure();
+
 
   useEffect(() => {
     fetchTasks();
@@ -45,7 +48,7 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      let url = 'http://localhost:5000/api/tasks';
+      let url = 'http://localhost:3000/api/v1/tasks';
       const params = new URLSearchParams();
       
       if (projectId) params.append('projectId', projectId);
@@ -55,8 +58,8 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
         url += `?${params.toString()}`;
       }
       
-      const response = await fetch(url);
-      const data = await response.json();
+      const response = await axiosSecure.get(url);
+      const data = await response.data.data;
       setTasks(data);
       setLoading(false);
     } catch (error) {
@@ -67,8 +70,8 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/projects');
-      const data = await response.json();
+      const response = await axiosSecure.get('http://localhost:3000/api/v1/projects');
+      const data = await response.data.data;
       setProjects(data);
       
       // If no projectId is provided and we have projects, set the first one as default
@@ -82,8 +85,8 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
 
   const fetchEmployees = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/employees');
-      const data = await response.json();
+      const response = await axiosSecure.get('http://localhost:3000/api/v1/employees');
+      const data = await response.data.data;
       setEmployees(data);
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -102,7 +105,7 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/tasks', {
+      const response = await axiosSecure.post('http://localhost:3000/api/v1/tasks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -110,7 +113,7 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
         body: JSON.stringify(newTask),
       });
 
-      if (response.ok) {
+      if (response.status === 201) {
         setShowAddModal(false);
         setNewTask({
           title: '',
@@ -180,19 +183,19 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
   };
 
   const getProjectName = (id: string) => {
-    const project = projects.find(p => p._id === id);
+    const project = projects.find(p => p._id === id._id);
     return project ? project.name : 'Unknown Project';
   };
 
   const getEmployeeName = (id?: string) => {
     if (!id) return 'Unassigned';
-    const employee = employees.find(e => e._id === id);
+    const employee = employees.find(e => e._id === id._id);
     return employee ? employee.name : 'Unknown Employee';
   };
 
   const getEmployeeAvatar = (id?: string) => {
     if (!id) return '';
-    const employee = employees.find(e => e._id === id);
+    const employee = employees.find(e => e._id === id._id);
     return employee ? employee.avatar : '';
   };
 

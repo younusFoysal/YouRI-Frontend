@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Team, Organization, Employee, Project } from '../types';
 import { Search, ArrowUpDown, Plus, X, Users, Building2, Briefcase } from 'lucide-react';
+import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
 interface TeamListProps {
   organizationId?: string;
@@ -28,6 +29,8 @@ const TeamList: React.FC<TeamListProps> = ({ organizationId, onSelectTeam }) => 
     memberIds: [] as string[]
   });
   const [loading, setLoading] = useState(true);
+  const axiosSecure = useAxiosSecure();
+
 
   useEffect(() => {
     fetchTeams();
@@ -39,13 +42,13 @@ const TeamList: React.FC<TeamListProps> = ({ organizationId, onSelectTeam }) => 
   const fetchTeams = async () => {
     try {
       setLoading(true);
-      let url = 'http://localhost:5000/api/teams';
+      let url = 'http://localhost:3000/api/v1/teams';
       if (organizationId) {
         url += `?organizationId=${organizationId}`;
       }
       
-      const response = await fetch(url);
-      const data = await response.json();
+      const response = await axiosSecure.get(url);
+      const data = await response.data.data;
       setTeams(data);
       setLoading(false);
     } catch (error) {
@@ -56,8 +59,8 @@ const TeamList: React.FC<TeamListProps> = ({ organizationId, onSelectTeam }) => 
 
   const fetchOrganizations = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/organizations');
-      const data = await response.json();
+      const response = await axiosSecure.get('http://localhost:3000/api/v1/organizations/organizations');
+      const data = await response.data.data;
       setOrganizations(data);
       
       // If no organizationId is provided and we have organizations, set the first one as default
@@ -71,8 +74,8 @@ const TeamList: React.FC<TeamListProps> = ({ organizationId, onSelectTeam }) => 
 
   const fetchEmployees = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/employees');
-      const data = await response.json();
+      const response = await axiosSecure.get('http://localhost:3000/api/v1/employees');
+      const data = await response.data.data;
       setEmployees(data);
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -81,13 +84,13 @@ const TeamList: React.FC<TeamListProps> = ({ organizationId, onSelectTeam }) => 
 
   const fetchProjects = async () => {
     try {
-      let url = 'http://localhost:5000/api/projects';
+      let url = 'http://localhost:3000/api/v1/projects';
       if (organizationId) {
         url += `?organizationId=${organizationId}`;
       }
       
-      const response = await fetch(url);
-      const data = await response.json();
+      const response = await axiosSecure.get(url);
+      const data = await response.data.data;
       setProjects(data);
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -106,15 +109,11 @@ const TeamList: React.FC<TeamListProps> = ({ organizationId, onSelectTeam }) => 
   const handleAddTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/teams', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await axiosSecure.post('http://localhost:3000/api/v1/teams', {
         body: JSON.stringify(newTeam),
       });
 
-      if (response.ok) {
+      if (response.status === 201) {
         setShowAddModal(false);
         setNewTeam({
           name: '',
@@ -163,17 +162,17 @@ const TeamList: React.FC<TeamListProps> = ({ organizationId, onSelectTeam }) => 
   };
 
   const getOrganizationName = (orgId: string) => {
-    const org = organizations.find(o => o._id === orgId);
+    const org = organizations.find(o => o._id === orgId._id);
     return org ? org.name : 'Unknown Organization';
   };
 
   const getEmployeeName = (empId: string) => {
-    const emp = employees.find(e => e._id === empId);
+    const emp = employees.find(e => e._id === empId._id);
     return emp ? emp.name : 'Unknown Employee';
   };
 
   const getProjectName = (projId: string) => {
-    const proj = projects.find(p => p._id === projId);
+    const proj = projects.find(p => p._id === projId._id);
     return proj ? proj.name : 'Unknown Project';
   };
 

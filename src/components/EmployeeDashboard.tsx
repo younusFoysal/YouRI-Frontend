@@ -300,7 +300,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ organizationId })
                         onClick={handlePreviousWeek}
                         className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100"
                     >
-                        &lt;
+                        Pre
                     </button>
                     <button
                         onClick={handleCurrentWeek}
@@ -312,7 +312,7 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ organizationId })
                         onClick={handleNextWeek}
                         className="p-2 border border-gray-300 rounded-lg hover:bg-gray-100"
                     >
-                        &gt;
+                        Next
                     </button>
                     <span className="text-gray-600 ml-2">
             {weeklyStats.weekStart} - {weeklyStats.weekEnd}

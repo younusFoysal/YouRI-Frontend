@@ -4,6 +4,7 @@ import { Building2, Users, Briefcase, ListTodo, BarChart2, Clock, Calendar, Doll
 import { format } from 'date-fns';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import {useAuth} from "../context/AuthContext.tsx";
+import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
 interface DashboardProps {
     onSelectOrganization: (organization: Organization) => void;
@@ -32,8 +33,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectOrganization }) => {
         reviewTasks: 0,
         completedTasks: 0,
         totalBudget: 0,
-        totalHoursLogged: 0
+        totalHoursLogged: 0,
+        activeHours: 0,
+        idleHours: 0,
     });
+    const axiosSecure = useAxiosSecure();
+
 
     console.log("D Work Sessions:", workSessions);
     console.log("D Employees:", employees);
@@ -65,30 +70,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectOrganization }) => {
 
             // Fetch all data for org dashboard
             const [employeesRes, projectsRes, teamsRes, tasksRes, sessionsRes] = await Promise.all([
-                fetch(`http://localhost:5000/api/employees?organizationId=${orgId}`, {
-                    headers: { 'Authorization': `Bearer ${state.user?.token}` }
-                }),
-                fetch(`http://localhost:5000/api/projects?organizationId=${orgId}`, {
-                    headers: { 'Authorization': `Bearer ${state.user?.token}` }
-                }),
-                fetch(`http://localhost:5000/api/teams?organizationId=${orgId}`, {
-                    headers: { 'Authorization': `Bearer ${state.user?.token}` }
-                }),
-                fetch(`http://localhost:5000/api/tasks?organizationId=${orgId}`, {
-                    headers: { 'Authorization': `Bearer ${state.user?.token}` }
-                }),
-                fetch(`http://localhost:5000/api/sessions?organizationId=${orgId}`, {
-                    headers: { 'Authorization': `Bearer ${state.user?.token}` }
-                })
+                axiosSecure.get(`/employees/organization/${orgId}`),
+                axiosSecure.get(`/projects?organizationId=${orgId}`),
+                axiosSecure.get(`/teams?organizationId=${orgId}`),
+                axiosSecure.get(`/tasks?organizationId=${orgId}`),
+                axiosSecure.get(`/sessions?organizationId=${orgId}`)
             ]);
 
             const [employeesData, projectsData, teamsData, tasksData, sessionsData] = await Promise.all([
-                employeesRes.json(),
-                projectsRes.json(),
-                teamsRes.json(),
-                tasksRes.json(),
-                sessionsRes.json()
+                employeesRes.data.data,
+                projectsRes.data.data,
+                teamsRes.data.data,
+                tasksRes.data.data,
+                sessionsRes.data.data
             ]);
+
+            console.log(employeesData, projectsData, teamsData, tasksData, sessionsData);
 
             setEmployees(employeesData);
             setProjects(projectsData);
@@ -111,17 +108,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectOrganization }) => {
 
             // Fetch only the logged-in user's data
             const [tasksRes, sessionsRes] = await Promise.all([
-                fetch(`http://localhost:5000/api/tasks?assigneeId=${state.user?._id}`, {
-                    headers: { 'Authorization': `Bearer ${state.user?.token}` }
-                }),
-                fetch(`http://localhost:5000/api/sessions?employeeId=${state.user?._id}`, {
-                    headers: { 'Authorization': `Bearer ${state.user?.token}` }
-                })
+                axiosSecure.get(`tasks?assigneeId=${state.user?._id}`),
+                axiosSecure.get(`/sessions?employeeId=${state.user?._id}`)
             ]);
 
             const [tasksData, sessionsData] = await Promise.all([
-                tasksRes.json(),
-                sessionsRes.json()
+                tasksRes.data.data,
+                sessionsRes.data.data
             ]);
 
             setTasks(tasksData);
@@ -137,38 +130,55 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectOrganization }) => {
 
     // Calculate stats for organization
     const calculateOrgStats = (employees: Employee[], projects: Project[], tasks: Task[], sessions: WorkSession[]) => {
-        // Calculate organization-wide statistics
+        const totalHoursLogged = sessions.reduce(
+            (sum, session) => sum + (((session.activeTime ?? 0) + (session.idleTime ?? 0)) / 3600),
+            0
+        );
+
         const stats = {
             activeEmployees: employees.filter(emp => emp.status === 'active').length,
             inactiveEmployees: employees.filter(emp => emp.status === 'inactive').length,
             onLeaveEmployees: employees.filter(emp => emp.status === 'on-leave').length,
+
             completedProjects: projects.filter(proj => proj.status === 'completed').length,
             inProgressProjects: projects.filter(proj => proj.status === 'in-progress').length,
             planningProjects: projects.filter(proj => proj.status === 'planning').length,
             onHoldProjects: projects.filter(proj => proj.status === 'on-hold').length,
+
             todoTasks: tasks.filter(task => task.status === 'todo').length,
             inProgressTasks: tasks.filter(task => task.status === 'in-progress').length,
             reviewTasks: tasks.filter(task => task.status === 'review').length,
             completedTasks: tasks.filter(task => task.status === 'completed').length,
-            totalBudget: projects.reduce((sum, proj) => sum + (proj.budget || 0), 0),
-            totalHoursLogged: sessions.reduce((sum, session) =>
-                sum + ((session.activeTime + session.idleTime) / 3600), 0)
+
+            totalBudget: projects.reduce((sum, proj) => sum + (proj.budget ?? 0), 0),
+            totalHoursLogged: Math.round(totalHoursLogged * 10) / 10
         };
 
         setStats(stats);
     };
 
+
     const calculateEmployeeStats = (tasks: Task[], sessions: WorkSession[]) => {
-        // Calculate employee-specific statistics
         const stats = {
             todoTasks: tasks.filter(task => task.status === 'todo').length,
             inProgressTasks: tasks.filter(task => task.status === 'in-progress').length,
             reviewTasks: tasks.filter(task => task.status === 'review').length,
             completedTasks: tasks.filter(task => task.status === 'completed').length,
-            totalHoursLogged: sessions.reduce((sum, session) =>
-                sum + ((session.activeTime + session.idleTime) / 3600), 0),
-            activeHours: sessions.reduce((sum, session) => sum + (session.activeTime / 3600), 0),
-            idleHours: sessions.reduce((sum, session) => sum + (session.idleTime / 3600), 0)
+
+            totalHoursLogged: sessions.reduce(
+                (sum, session) => sum + (((session.activeTime ?? 0) + (session.idleTime ?? 0)) / 3600),
+                0
+            ),
+
+            activeHours: sessions.reduce(
+                (sum, session) => sum + ((session.activeTime ?? 0) / 3600),
+                0
+            ),
+
+            idleHours: sessions.reduce(
+                (sum, session) => sum + ((session.idleTime ?? 0) / 3600),
+                0
+            ),
         };
 
         setStats({
@@ -183,6 +193,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectOrganization }) => {
             totalBudget: 0
         });
     };
+
 
     const isOrgAdmin = () => {
         if (!selectedOrg || !state.user) return false;
@@ -491,8 +502,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectOrganization }) => {
                 <div className="bg-white rounded-lg shadow-md p-6">
                     <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
                     <div className="space-y-4">
-                        {workSessions.slice(0, 5).map((session, index) => (
-                            <div key={session.id} className="flex items-center justify-between border-b pb-4">
+                        {workSessions.slice(0, 5).map((session) => (
+                            <div key={session._id} className="flex items-center justify-between border-b pb-4">
                                 <div className="flex items-center">
                                     <Clock className="text-gray-400 mr-3" />
                                     <div>
@@ -506,10 +517,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectOrganization }) => {
                                 </div>
                                 <div className="text-right">
                                     <div className="font-medium">
-                                        {((session.activeTime + session.idleTime) / 3600).toFixed(1)}h
+                                        {(((session.activeTime ?? 0) + (session.idleTime ?? 0)) / 3600).toFixed(1)}h
                                     </div>
                                     <div className="text-sm text-gray-500">
-                                        {(session.activeTime / (session.activeTime + session.idleTime) * 100).toFixed(1)}% active
+                                        {(
+                                            ((session.activeTime ?? 0) / (((session.activeTime ?? 0) + (session.idleTime ?? 0)) || 1)) * 100
+                                        ).toFixed(1)}% active
                                     </div>
                                 </div>
                             </div>
@@ -795,9 +808,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectOrganization }) => {
                 <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
                 <div className="space-y-4">
                     {workSessions.slice(0, 5).map((session, index) => {
-                        const employee = employees.find(emp => emp.id === session.employeeId);
+                        const employee = employees.find(emp => emp._id === session.employeeId);
                         return (
-                            <div key={session.id} className="flex items-start space-x-3 pb-4 border-b border-gray-100">
+                            <div key={session._id} className="flex items-start space-x-3 pb-4 border-b border-gray-100">
                                 <div
                                     className={`p-2 rounded-full ${index % 2 === 0 ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
                                     {index % 2 === 0 ? <Clock size={20}/> : <Calendar size={20}/>}
@@ -805,8 +818,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onSelectOrganization }) => {
                                 <div>
                                     <p className="font-medium">{employee?.name}</p>
                                     <p className="text-sm text-gray-600">
-                                        Worked for {((session.activeTime + session.idleTime) / 3600).toFixed(1)} hours
+                                        Worked for {(((session.activeTime ?? 0) + (session.idleTime ?? 0)) / 3600).toFixed(1)} hours
                                     </p>
+
                                     <p className="text-xs text-gray-500 mt-1">
                                         {format(new Date(session.startTime), 'MMM dd, yyyy HH:mm')} - {format(new Date(session.endTime), 'HH:mm')}
                                     </p>

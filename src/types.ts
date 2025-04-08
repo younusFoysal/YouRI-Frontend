@@ -87,6 +87,7 @@ export interface User {
 export interface UserOrganization {
   _id: string;
   organizationId: string;
+  organizationName: string;
   role: 'admin' | 'owner' | 'employee';
   joinedAt: string;
   organization?: Organization;

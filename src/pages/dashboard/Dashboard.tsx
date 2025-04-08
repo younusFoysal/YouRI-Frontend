@@ -1,5 +1,5 @@
 import DashboardComponent from '../../components/Dashboard';
-import {useEffect} from "react";
+import React, {useEffect} from "react";
 import {useAuth} from "../../context/AuthContext.tsx";
 import {useNavigate} from "react-router-dom";
 

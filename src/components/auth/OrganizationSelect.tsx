@@ -1,23 +1,13 @@
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {Building2, Plus, ArrowRight, Briefcase, AlertCircle, UserPlus} from 'lucide-react';
 import OrganizationInviteCreate from "./OrganizationInviteCreate.tsx";
 import useAxiosSecure from "../../hook/useAxiosSecure.ts";
+import {Organization} from "../../types.ts";
 
-interface Organization {
-    _id: string;
-    name: string;
-    description: string;
-    logo: string;
-    industry: string;
-    role: string;
-}
+
 
 const OrganizationSelect: React.FC = () => {
     const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -25,7 +15,7 @@ const OrganizationSelect: React.FC = () => {
     const [error, setError] = useState('');
     const [showInviteModal, setShowInviteModal] = useState(false);
 
-    const { state } = useAuth();
+    const { state, selectOrganization } = useAuth();
     const navigate = useNavigate();
     const axiosSecure = useAxiosSecure();
 
@@ -36,12 +26,7 @@ const OrganizationSelect: React.FC = () => {
     const fetchOrganizations = async () => {
         try {
             setLoading(true);
-            const response = await axiosSecure.get('http://localhost:3000/api/v1/organizations/organizations', {
-                headers: {
-                    'Authorization': `Bearer ${state.user?.token}`
-                }
-            });
-
+            const response = await axiosSecure.get('/organizations/organizations');
             setOrganizations(response.data.data);
         } catch (err: any) {
             setError(err.message);
@@ -52,12 +37,6 @@ const OrganizationSelect: React.FC = () => {
 
 
     // const selectOrganization = (orgId: string) => {
-    //     // In a real app, you might want to set the selected organization in context
-    //     // For now, we'll just navigate to the dashboard
-    //     navigate('/dashboard');
-    // };
-
-    // const selectOrganization = (orgId: string) => {
     //   const selectedOrg = organizations.find(org => org._id === orgId);
     //   if (selectedOrg) {
     //     setOrganization(selectedOrg);
@@ -65,10 +44,14 @@ const OrganizationSelect: React.FC = () => {
     //   }
     // };
 
-    const selectOrganization = (org: Organization) => {
+    console.log(state)
+
+    const handleselectOrganization = (org: Organization) => {
+        console.log(org);
         // Store the selected organization in localStorage
         localStorage.setItem('selectedOrganization', JSON.stringify(org));
         // Navigate to the dashboard with the selected organization
+        selectOrganization(org);
         navigate('/dashboard', { state: { selectedOrganization: org } });
     };
 
@@ -155,7 +138,7 @@ const OrganizationSelect: React.FC = () => {
                         <div
                             key={org._id}
                             className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                            onClick={() => selectOrganization(org)}
+                            onClick={() => handleselectOrganization(org)}
                         >
                             <div
                                 className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">

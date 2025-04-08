@@ -1,124 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, {createContext, useContext, useReducer, useEffect, useRef} from 'react';
-import {Organization, User} from '../types';
-
-
-interface AuthState {
-    user: User | null;
-    isAuthenticated: boolean;
-    loading: boolean;
-    error: string | null;
-    selectedOrganization: Organization | null;
-}
-
-type AuthAction =
-    | { type: 'LOGIN_REQUEST' }
-    | { type: 'LOGIN_SUCCESS'; payload: User }
-    | { type: 'LOGIN_FAIL'; payload: string }
-    | { type: 'REGISTER_REQUEST' }
-    | { type: 'REGISTER_SUCCESS'; payload: User }
-    | { type: 'REGISTER_FAIL'; payload: string }
-    | { type: 'LOGOUT' }
-    | { type: 'CLEAR_ERROR' }
-    | { type: 'UPDATE_USER'; payload: User }
-    | { type: 'SELECT_ORGANIZATION'; payload: Organization };
-
-interface AuthContextType {
-    state: AuthState;
-    login: (email: string, password: string) => Promise<void>;
-    register: (name: string, email: string, password: string, position?: string, department?: string) => Promise<void>;
-    logout: () => void;
-    clearError: () => void;
-    updateUser: (user: User) => void;
-    selectOrganization: (organization: Organization) => void;
-}
-
-const initialState: AuthState = {
-    user: null,
-    isAuthenticated: false,
-    loading: false,
-    error: null,
-    selectedOrganization: null,
-};
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { AuthContextType, User, Organization } from '../types';
+import axios from "axios";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const authReducer = (state: AuthState, action: AuthAction): AuthState => {
-    switch (action.type) {
-        case 'LOGIN_REQUEST':
-        case 'REGISTER_REQUEST':
-            return {
-                ...state,
-                loading: true,
-                error: null,
-            };
-        case 'LOGIN_SUCCESS':
-        case 'REGISTER_SUCCESS':
-            localStorage.setItem('user', JSON.stringify(action.payload));
-            return {
-                ...state,
-                user: action.payload,
-                isAuthenticated: true,
-                loading: false,
-                error: null,
-            };
-        case 'LOGIN_FAIL':
-        case 'REGISTER_FAIL':
-            return {
-                ...state,
-                loading: false,
-                error: action.payload,
-            };
-        case 'LOGOUT':
-            localStorage.removeItem('user');
-            localStorage.removeItem('selectedOrganization');
-            return {
-                ...state,
-                user: null,
-                isAuthenticated: false,
-                selectedOrganization: null,
-            };
-        case 'CLEAR_ERROR':
-            if (!state.error) return state;
-            return {
-                ...state,
-                error: null,
-            };
-        case 'UPDATE_USER':
-            localStorage.setItem('user', JSON.stringify(action.payload));
-            return {
-                ...state,
-                user: action.payload,
-            };
-        case 'SELECT_ORGANIZATION':
-            localStorage.setItem('selectedOrganization', JSON.stringify(action.payload));
-            return {
-                ...state,
-                selectedOrganization: action.payload,
-            };
-        default:
-            return state;
-    }
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [state, dispatch] = useReducer(authReducer, initialState);
-
-    // Function to initialize authentication state from localStorage
-    // const initializeAuth = () => {
-    //     const storedUser = localStorage.getItem('user');
-    //     if (storedUser) {
-    //         try {
-    //             const parsedUser = JSON.parse(storedUser);
-    //             if (!state.isAuthenticated) {
-    //                 dispatch({ type: 'LOGIN_SUCCESS', payload: parsedUser });
-    //             }
-    //         } catch (error) {
-    //             console.error('Error parsing stored user:', error);
-    //             localStorage.removeItem('user');
-    //         }
-    //     }
-    // };
+    const [user, setUser] = useState<User | null>(null);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
 
     const hasInitialized = useRef(false);
 
@@ -126,66 +18,70 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (hasInitialized.current) return;
         hasInitialized.current = true;
 
+        // Load user from localStorage
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             try {
                 const parsedUser = JSON.parse(storedUser);
-                dispatch({ type: 'LOGIN_SUCCESS', payload: parsedUser });
+                setUser(parsedUser);
+                setIsAuthenticated(true);
             } catch (error) {
                 console.error('Error parsing stored user:', error);
                 localStorage.removeItem('user');
             }
         }
 
-
+        // Load selected organization from localStorage
         const selectedOrg = localStorage.getItem('selectedOrganization');
         if (selectedOrg) {
             try {
                 const parsedOrg = JSON.parse(selectedOrg);
-                dispatch({ type: 'SELECT_ORGANIZATION', payload: parsedOrg });
+                setSelectedOrganization(parsedOrg);
             } catch (error) {
                 console.error('Error parsing stored organization:', error);
                 localStorage.removeItem('selectedOrganization');
             }
         }
-
-
     }, []);
-
-
-    // useEffect(() => {
-    //     const user = localStorage.getItem('user');
-    //     if (user) {
-    //         dispatch({ type: 'LOGIN_SUCCESS', payload: JSON.parse(user) });
-    //     }
-    // }, []);
 
     const login = async (email: string, password: string) => {
         try {
-            dispatch({ type: 'LOGIN_REQUEST' });
-            const response = await fetch('http://localhost:3000/api/v1/auth/login', {
-                method: 'POST',
+            setLoading(true);
+            setError(null);
+
+            const response = await axios.post('http://localhost:3000/api/v1/auth/login', {
+                email,
+                password,
+            }, {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, password }),
+                withCredentials: true,
             });
 
-            const data = await response.json();
+            const data = response.data;
 
-            if (!response.ok) {
+            if (response.status !== 200) {
                 throw new Error(data.message || 'Login failed');
             }
 
-            dispatch({ type: 'LOGIN_SUCCESS', payload: data.data });
+            const userData = data.data;
+            setUser(userData);
+            setIsAuthenticated(true);
+            localStorage.setItem('user', JSON.stringify(userData));
+
+            setLoading(false);
         } catch (error: any) {
-            dispatch({ type: 'LOGIN_FAIL', payload: error.message });
+            setError(error.message);
+            setLoading(false);
         }
     };
 
     const register = async (name: string, email: string, password: string, position?: string, department?: string) => {
         try {
-            dispatch({ type: 'REGISTER_REQUEST' });
+            setLoading(true);
+            setError(null);
+
             const response = await fetch('http://localhost:5000/api/auth/register', {
                 method: 'POST',
                 headers: {
@@ -200,30 +96,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 throw new Error(data.message || 'Registration failed');
             }
 
-            dispatch({ type: 'REGISTER_SUCCESS', payload: data });
+            setUser(data);
+            setIsAuthenticated(true);
+            localStorage.setItem('user', JSON.stringify(data));
+
+            setLoading(false);
         } catch (error: any) {
-            dispatch({ type: 'REGISTER_FAIL', payload: error.message });
+            setError(error.message);
+            setLoading(false);
         }
     };
 
     const logout = () => {
-        dispatch({ type: 'LOGOUT' });
+        setUser(null);
+        setIsAuthenticated(false);
+        setSelectedOrganization(null);
+        localStorage.removeItem('user');
+        localStorage.removeItem('selectedOrganization');
     };
 
     const clearError = () => {
-        dispatch({ type: 'CLEAR_ERROR' });
+        setError(null);
     };
 
-    const updateUser = (user: User) => {
-        dispatch({ type: 'UPDATE_USER', payload: user });
+    const updateUser = (updatedUser: User) => {
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
     };
 
     const selectOrganization = (organization: Organization) => {
-        dispatch({ type: 'SELECT_ORGANIZATION', payload: organization });
+        setSelectedOrganization(organization);
+        localStorage.setItem('selectedOrganization', JSON.stringify(organization));
+    };
+
+    // Create a state object to maintain compatibility with existing code
+    const state = {
+        user,
+        isAuthenticated,
+        loading,
+        error,
+        selectedOrganization
     };
 
     return (
-        <AuthContext.Provider value={{ state, login, register, logout, clearError, updateUser, selectOrganization }}>
+        <AuthContext.Provider value={{
+            state,
+            login,
+            register,
+            logout,
+            clearError,
+            updateUser,
+            selectOrganization
+        }}>
             {children}
         </AuthContext.Provider>
     );

@@ -69,7 +69,7 @@ export interface Employee {
 }
 
 export interface User {
-  id: string;
+  _id: string;
   name: string;
   email: string;
   position: string;
@@ -175,3 +175,57 @@ export interface JwtPayload {
   email: string;
   role: string;
 }
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  error: string | null;
+  selectedOrganization: Organization | null;
+}
+
+
+export type AuthAction =
+    | { type: 'LOGIN_REQUEST' }
+    | { type: 'LOGIN_SUCCESS'; payload: User }
+    | { type: 'LOGIN_FAIL'; payload: string }
+    | { type: 'REGISTER_REQUEST' }
+    | { type: 'REGISTER_SUCCESS'; payload: User }
+    | { type: 'REGISTER_FAIL'; payload: string }
+    | { type: 'LOGOUT' }
+    | { type: 'CLEAR_ERROR' }
+    | { type: 'UPDATE_USER'; payload: User }
+    | { type: 'SELECT_ORGANIZATION'; payload: Organization };
+
+
+export interface AuthContextType {
+  state: AuthState;
+  login: (email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, position?: string, department?: string) => Promise<void>;
+  logout: () => void;
+  clearError: () => void;
+  updateUser: (user: User) => void;
+  selectOrganization: (organization: Organization) => void;
+}
+
+export interface Organization {
+  _id: string;
+  name: string;
+  description: string;
+  logo: string;
+  industry: string;
+  role: string;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

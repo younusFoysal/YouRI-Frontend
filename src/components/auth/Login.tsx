@@ -9,23 +9,54 @@ const Login: React.FC = () => {
     const { state, login, clearError } = useAuth();
     const navigate = useNavigate();
 
+    // useEffect(() => {
+    //     // Redirect if already authenticated
+    //     if (state.isAuthenticated) {
+    //
+    //         console.log('User is authenticated:', state);
+    //
+    //         // Redirect to organization select if authenticated
+    //         if (state.user?.isMasterAdmin === true) {
+    //             navigate('/admin');
+    //         } else {
+    //             navigate('/organization/select');
+    //         }
+    //     }
+    //
+    //     // Clear any existing errors
+    //     clearError();
+    // }, [state.isAuthenticated, navigate, clearError]);
+
+
     useEffect(() => {
         // Redirect if already authenticated
         if (state.isAuthenticated) {
-
             console.log('User is authenticated:', state);
 
-            // Redirect to organization select if authenticated
-            if (state.user?.isMasterAdmin === true) {
-                navigate('/admin');
-            } else {
-                navigate('/organization/select');
+            // Store the current path before redirecting
+            const currentPath = window.location.pathname;
+
+            // Only redirect if we're on the login page
+            if (currentPath === '/login') {
+                // Check if there's a stored return path
+                const returnPath = sessionStorage.getItem('returnPath');
+
+                if (returnPath) {
+                    navigate(returnPath);
+                    sessionStorage.removeItem('returnPath');
+                } else if (state.user?.isMasterAdmin === true) {
+                    navigate('/admin');
+                } else {
+                    navigate('/organization/select');
+                }
             }
         }
 
         // Clear any existing errors
         clearError();
     }, [state.isAuthenticated, navigate, clearError]);
+
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

@@ -2,7 +2,7 @@ import StatisticsComponent from '../../components/Statistics';
 import {WorkSession} from "../../types.ts";
 import {useLocation, useNavigate} from "react-router-dom";
 import {useAuth} from "../../context/AuthContext.tsx";
-import {useEffect} from "react";
+import React, {useEffect} from "react";
 
 const Statistics: React.FC = () => {
 

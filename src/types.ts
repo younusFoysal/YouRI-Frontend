@@ -95,12 +95,12 @@ export interface UserOrganization {
 export interface WorkSession {
   _id: string;
   employeeId: string;
-  projectId?: string;
-  taskId?: string;
+  projectId?: Project;
+  taskId?: Task;
   startTime: string;
   endTime: string;
   activeTime: number; // in seconds
-  idleTime: number; // in seconds
+  idleTime: number | undefined; // in seconds
   screenshots: Screenshot[];
   applications: Application[];
   links: Link[];
@@ -216,6 +216,20 @@ export interface Organization {
   industry: string;
   role: string;
 }
+
+export interface AddSessionModalProps {
+  employeeId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export interface StatisticsProps {
+  selectedEmployeeId: string;
+  onBack: () => void;
+  onViewSession: (session: WorkSession) => void;
+}
+
+
 
 
 

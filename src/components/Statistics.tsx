@@ -1,42 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
 import { DayPicker } from 'react-day-picker';
 import {
   format,
-  parseISO,
   differenceInSeconds,
   startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isSameDay,
-  isSameMonth,
-  isWithinInterval
 } from 'date-fns';
-import { DailyStats, WeeklyStats, MonthlyStats, WorkSession } from '../types';
+import {DailyStats, WeeklyStats, MonthlyStats, WorkSession, StatisticsProps} from '../types';
 import { Calendar, Clock, Activity, Coffee, ArrowLeft, Eye, ChevronDown } from 'lucide-react';
 import 'react-day-picker/dist/style.css';
 import AddSessionModal from "./AddSessionModal.tsx";
+import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
-interface StatisticsProps {
-  selectedEmployeeId: string;
-  onBack: () => void;
-  onViewSession: (session: WorkSession) => void;
-}
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B'];
 
 const Statistics: React.FC<StatisticsProps> = ({
   selectedEmployeeId,
@@ -62,6 +37,8 @@ const Statistics: React.FC<StatisticsProps> = ({
 
 
   const [showAddSessionModal, setShowAddSessionModal] = useState(false);
+  const axiosSecure = useAxiosSecure();
+
 
 
   useEffect(() => {
@@ -80,10 +57,10 @@ const Statistics: React.FC<StatisticsProps> = ({
 
   const fetchDailyStats = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/stats/daily/${selectedEmployeeId}?date=${format(selectedDate, 'yyyy-MM-dd')}`
+      const response = await axiosSecure.get(
+        `/stats/daily/${selectedEmployeeId}?date=${format(selectedDate, 'yyyy-MM-dd')}`
       );
-      const data = await response.json();
+      const data = await response.data.data;
       console.log(data);
       setDailyStats(data);
     } catch (error) {
@@ -93,10 +70,10 @@ const Statistics: React.FC<StatisticsProps> = ({
 
   const fetchWeeklyStats = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/stats/weekly/${selectedEmployeeId}?date=${format(selectedDate, 'yyyy-MM-dd')}`
+      const response = await axiosSecure.get(
+        `/stats/weekly/${selectedEmployeeId}?date=${format(selectedDate, 'yyyy-MM-dd')}`
       );
-      const data = await response.json();
+      const data = await response.data.data;
       setWeeklyStats(data);
     } catch (error) {
       console.error('Error fetching weekly stats:', error);
@@ -105,10 +82,10 @@ const Statistics: React.FC<StatisticsProps> = ({
 
   const fetchMonthlyStats = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/stats/monthly/${selectedEmployeeId}?date=${format(selectedDate, 'yyyy-MM-dd')}`
+      const response = await axiosSecure.get(
+        `/stats/monthly/${selectedEmployeeId}?date=${format(selectedDate, 'yyyy-MM-dd')}`
       );
-      const data = await response.json();
+      const data = await response.data.data;
       setMonthlyStats(data);
     } catch (error) {
       console.error('Error fetching monthly stats:', error);
@@ -119,10 +96,10 @@ const Statistics: React.FC<StatisticsProps> = ({
     if (!dateRange.from || !dateRange.to) return;
 
     try {
-      const response = await fetch(
-        `http://localhost:5000/api/stats/daily/${selectedEmployeeId}?startDate=${format(dateRange.from, 'yyyy-MM-dd')}&endDate=${format(dateRange.to, 'yyyy-MM-dd')}`
+      const response = await axiosSecure.get(
+        `/stats/daily/${selectedEmployeeId}?startDate=${format(dateRange.from, 'yyyy-MM-dd')}&endDate=${format(dateRange.to, 'yyyy-MM-dd')}`
       );
-      const data = await response.json();
+      const data = await response.data.data;
       //console.log(data)
 
       // Ensure data is an array before processing
@@ -156,70 +133,114 @@ const Statistics: React.FC<StatisticsProps> = ({
     }
   };
 
-  const formatDuration = (seconds: number, totalDuration: number): string => {
+  const formatDuration = (seconds: number, totalDuration?: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    const percentage = totalDuration > 0 ? ((seconds / totalDuration) * 100).toFixed(1) : '0';
-    return `${hours}h ${minutes}m (${percentage}%)`;
+
+    if (totalDuration) {
+      const percentage = totalDuration > 0 ? ((seconds / totalDuration) * 100).toFixed(1) : '0';
+      return `${hours}h ${minutes}m (${percentage}%)`;
+    }
+
+    return `${hours}h ${minutes}m`;
   };
+
 
   const renderSessionList = (sessions: WorkSession[]) => {
     return (
-      <div className="mt-4 space-y-3">
-        {sessions.map((session) => {
-          const duration = differenceInSeconds(
-            new Date(session.endTime),
-            new Date(session.startTime)
-          );
-          const activePercentage = (session.activeTime / duration) * 100;
-          const idlePercentage = (session.idleTime / duration) * 100;
+        <div className="mt-4 space-y-3">
+          {sessions.map((session) => {
 
-          return (
-              <div key={session._id} className="bg-white rounded-lg shadow-sm p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <Clock size={16} className="text-gray-600"/>
-                    <div className="flex flex-col">
-                    <span className="text-sm font-medium">
-                      {format(new Date(session.startTime), 'MMM dd, yyyy')}
-                    </span>
-                      <span className="text-sm text-gray-500">
-                      {format(new Date(session.startTime), 'HH:mm')} -{' '}
-                        {format(new Date(session.endTime), 'HH:mm')}
-                    </span>
+
+            const duration = session.startTime && session.endTime
+                ? differenceInSeconds(
+                    new Date(session.endTime),
+                    new Date(session.startTime)
+                )
+                : 0;
+
+            // // Add a debug log to check values
+            // console.log('Time calculation:', {
+            //   startTime: session.startTime,
+            //   endTime: session.endTime,
+            //   startDate: new Date(session.startTime),
+            //   endDate: new Date(session.endTime),
+            //   calculatedDuration: duration
+            // });
+            //
+            // // If duration is still 0 but should have a value, use a fallback calculation
+            // const effectiveDuration = duration > 0 ? duration : (
+            //     session.activeTime + session.idleTime > 0 ?
+            //         session.activeTime + session.idleTime :
+            //         7200 // Default to 2 hours (7200 seconds) if all else fails
+            // );
+            //
+            // console.log(effectiveDuration);
+            //
+            //
+            // console.log(duration);
+
+            return (
+                <div key={session._id} className="bg-white rounded-lg shadow-sm p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <Clock size={16} className="text-gray-600"/>
+                      <div className="flex flex-col">
+                  <span className="text-sm font-medium">
+                    {format(new Date(session.startTime), 'MMM dd, yyyy')}
+                  </span>
+                        <span className="text-sm text-gray-500">
+                    {format(new Date(session.startTime), 'HH:mm')} -{' '}
+                          {format(new Date(session.endTime), 'HH:mm')}
+                  </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">
+                  {formatDuration(duration)}
+                </span>
+                      <button
+                          onClick={() => onViewSession(session)}
+                          className="flex items-center space-x-1 text-blue-600 hover:text-blue-800"
+                      >
+                        <Eye size={16}/>
+                        <span>View Details</span>
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-600">
-                    {formatDuration(duration)}
-                  </span>
-                    <button
-                        onClick={() => onViewSession(session)}
-                        className="flex items-center space-x-1 text-blue-600 hover:text-blue-800"
-                    >
-                      <Eye size={16}/>
-                      <span>View Details</span>
-                    </button>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Activity size={16} className="text-green-500"/>
+                      <span className="text-sm">
+                  Active: {formatDuration(session.activeTime, duration)}
+                </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Coffee size={16} className="text-orange-500"/>
+                      <span className="text-sm">
+                  Idle: {formatDuration(session.idleTime, duration)}
+                </span>
+                    </div>
+                    {session.projectId && (
+                        <div className="text-sm text-gray-600 mt-2">
+                          Project: {session.projectId.name}
+                        </div>
+                    )}
+                    {session.taskId && (
+                        <div className="text-sm text-gray-600">
+                          Task: {session.taskId.title}
+                        </div>
+                    )}
+                    {session.notes && (
+                        <div className="text-sm text-gray-600 mt-1">
+                          Notes: {session.notes}
+                        </div>
+                    )}
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Activity size={16} className="text-green-500"/>
-                    <span className="text-sm">
-                      Active: {formatDuration(session.activeTime, duration)}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Coffee size={16} className="text-orange-500"/>
-                    <span className="text-sm">
-                      Idle: {formatDuration(session.idleTime, duration)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
     );
   };
 
@@ -387,18 +408,40 @@ const Statistics: React.FC<StatisticsProps> = ({
 
               {isDatePickerOpen && (
                   <div className="absolute top-full mt-2 bg-white rounded-lg shadow-lg z-10 border border-gray-200">
+                    {/*<DayPicker*/}
+                    {/*    mode="range"*/}
+                    {/*    selected={dateRange}*/}
+                    {/*    onSelect={(range) => {*/}
+                    {/*      setDateRange(range || { from: undefined, to: undefined });*/}
+                    {/*      if (range?.from && range?.to) {*/}
+                    {/*        setIsDatePickerOpen(false);*/}
+                    {/*      }*/}
+                    {/*    }}*/}
+                    {/*    numberOfMonths={2}*/}
+                    {/*    className="p-4"*/}
+                    {/*/>*/}
                     <DayPicker
                         mode="range"
                         selected={dateRange}
                         onSelect={(range) => {
-                          setDateRange(range || { from: undefined, to: undefined });
+                          if (range) {
+                            setDateRange({
+                              from: range.from,
+                              to: range.to
+                            });
+                          } else {
+                            setDateRange({ from: undefined, to: undefined });
+                          }
+
                           if (range?.from && range?.to) {
                             setIsDatePickerOpen(false);
                           }
                         }}
+
                         numberOfMonths={2}
                         className="p-4"
                     />
+
                   </div>
               )}
             </div>

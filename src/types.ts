@@ -201,8 +201,8 @@ export type AuthAction =
 
 export interface AuthContextType {
   state: AuthState;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, position?: string, department?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, position?: string, department?: string) => Promise<boolean>;
   logout: () => void;
   clearError: () => void;
   updateUser: (user: User) => void;

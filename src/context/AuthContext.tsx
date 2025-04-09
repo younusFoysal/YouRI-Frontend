@@ -1,20 +1,20 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { AuthContextType, User, Organization } from '../types';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import useAxiosCommon from "../hook/useAxiosCommon.ts";
+import { toast } from "sonner";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
     const axiosCommon = useAxiosCommon();
-
+    const queryClient = useQueryClient();
     const hasInitialized = useRef(false);
 
+    // Initialize user and organization from localStorage
     useEffect(() => {
         if (hasInitialized.current) return;
         hasInitialized.current = true;
@@ -24,8 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (storedUser) {
             try {
                 const parsedUser = JSON.parse(storedUser);
-                setUser(parsedUser);
-                setIsAuthenticated(true);
+                queryClient.setQueryData(['user'], parsedUser);
             } catch (error) {
                 console.error('Error parsing stored user:', error);
                 localStorage.removeItem('user');
@@ -37,50 +36,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (selectedOrg) {
             try {
                 const parsedOrg = JSON.parse(selectedOrg);
-                setSelectedOrganization(parsedOrg);
+                queryClient.setQueryData(['selectedOrganization'], parsedOrg);
             } catch (error) {
                 console.error('Error parsing stored organization:', error);
                 localStorage.removeItem('selectedOrganization');
             }
         }
-    }, []);
+    }, [queryClient]);
 
-    const login = async (email: string, password: string) => {
-        try {
-            setLoading(true);
-            setError(null);
+    // User query with proper typing
+    const { data: user = null } = useQuery<User | null>({
+        queryKey: ['user'],
+        enabled: false, // Don't fetch automatically, we'll manage this manually
+        staleTime: Infinity, // Don't refetch automatically
+        initialData: null
+    });
 
+    // Selected organization query with proper typing
+    const { data: selectedOrganization = null } = useQuery<Organization | null>({
+        queryKey: ['selectedOrganization'],
+        enabled: false, // Don't fetch automatically, we'll manage this manually
+        staleTime: Infinity, // Don't refetch automatically
+        initialData: null
+    });
+
+    // Login mutation
+    const loginMutation = useMutation({
+        mutationFn: async ({ email, password }: { email: string; password: string }) => {
             const response = await axiosCommon.post('auth/login', {
                 email,
                 password
             }, {
                 withCredentials: true
             });
-
-
-            const data = response.data;
-
-            if (response.status !== 200) {
-                throw new Error(data.message || 'Login failed');
-            }
-
-            const userData = data.data;
-            setUser(userData);
-            setIsAuthenticated(true);
+            return response.data.data as User;
+        },
+        onSuccess: (userData) => {
+            queryClient.setQueryData(['user'], userData);
             localStorage.setItem('user', JSON.stringify(userData));
-
-            setLoading(false);
-        } catch (error: any) {
-            setError(error.message);
-            setLoading(false);
-        }
-    };
-
-    const register = async (name: string, email: string, password: string, position?: string, department?: string) => {
-        try {
-            setLoading(true);
             setError(null);
+            toast.success("Login successful! Welcome back.");
+        },
+        onError: (error: any) => {
+            const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+            setError(errorMessage);
+            toast.error(`Login failed: ${errorMessage}`);
+        }
+    });
 
+    // Register mutation
+    const registerMutation = useMutation({
+        mutationFn: async ({ name, email, password, position, department }:
+                           { name: string; email: string; password: string; position?: string; department?: string }) => {
             const response = await axiosCommon.post('/users/register', {
                 name,
                 email,
@@ -88,31 +95,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 position,
                 department
             });
+            return response.data.data as User;
+        },
+        onSuccess: (userData) => {
+            queryClient.setQueryData(['user'], userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+            setError(null);
+            toast.success("Registration successful! Welcome to YouRI.");
+        },
+        onError: (error: any) => {
+            const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
+            setError(errorMessage);
+            toast.error(`Registration failed: ${errorMessage}`);
+        }
+    });
 
+    const login = async (email: string, password: string) => {
+        try {
+            await loginMutation.mutateAsync({ email, password });
+            return true;
+        } catch (error) {
+            return false;
+        }
+    };
 
-            const data = await response.data;
-
-            if (response.status !== 200) {
-                throw new Error(data.message || 'Registration failed');
-            }
-
-            setUser(data);
-            setIsAuthenticated(true);
-            localStorage.setItem('user', JSON.stringify(data));
-
-            setLoading(false);
-        } catch (error: any) {
-            setError(error.message);
-            setLoading(false);
+    const register = async (name: string, email: string, password: string, position?: string, department?: string) => {
+        try {
+            await registerMutation.mutateAsync({ name, email, password, position, department });
+            return true;
+        } catch (error) {
+            return false;
         }
     };
 
     const logout = () => {
-        setUser(null);
-        setIsAuthenticated(false);
-        setSelectedOrganization(null);
+        queryClient.setQueryData(['user'], null);
+        queryClient.setQueryData(['selectedOrganization'], null);
         localStorage.removeItem('user');
         localStorage.removeItem('selectedOrganization');
+        toast.success("You have been logged out successfully.");
     };
 
     const clearError = () => {
@@ -120,20 +141,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const updateUser = (updatedUser: User) => {
-        setUser(updatedUser);
+        queryClient.setQueryData(['user'], updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
+        toast.success("User profile updated successfully.");
     };
 
     const selectOrganization = (organization: Organization) => {
-        setSelectedOrganization(organization);
+        queryClient.setQueryData(['selectedOrganization'], organization);
         localStorage.setItem('selectedOrganization', JSON.stringify(organization));
+        toast.success(`Organization "${organization.name}" selected.`);
     };
 
-    // Create a state object to maintain compatibility with existing code
-    const state = {
+    // Create a state object with proper typing to maintain compatibility with existing code
+    const state: {
+        user: User | null;
+        isAuthenticated: boolean;
+        loading: boolean;
+        error: string | null;
+        selectedOrganization: Organization | null;
+    } = {
         user,
-        isAuthenticated,
-        loading,
+        isAuthenticated: !!user,
+        loading: loginMutation.isPending || registerMutation.isPending,
         error,
         selectedOrganization
     };

@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { Building2, Briefcase, Globe, FileText, Image, AlertCircle, Copy, Check } from 'lucide-react';
+import useAxiosSecure from "../../hook/useAxiosSecure.ts";
 
 const OrganizationCreate: React.FC = () => {
     const [name, setName] = useState('');
@@ -14,8 +15,10 @@ const OrganizationCreate: React.FC = () => {
     const [success, setSuccess] = useState(false);
     const [inviteCode, setInviteCode] = useState('');
     const [copied, setCopied] = useState(false);
+    const axiosSecure = useAxiosSecure();
 
-    const { state } = useAuth();
+
+
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -24,30 +27,23 @@ const OrganizationCreate: React.FC = () => {
         setLoading(true);
 
         try {
-            const response = await fetch('http://localhost:5000/api/auth/organizations', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${state.user?.token}`
-                },
-                body: JSON.stringify({
-                    name,
-                    description,
-                    industry,
-                    website,
-                    logo
-                })
+            const response = await axiosSecure.post('/organizations/organizations', {
+                name,
+                description,
+                industry,
+                website,
+                logo
             });
 
-            const data = await response.json();
+            const data = await response.data.data;
 
-            if (!response.ok) {
+            if (response.status !== 200) {
                 throw new Error(data.message || 'Failed to create organization');
             }
 
             setSuccess(true);
             setInviteCode(data.inviteCode);
-        } catch (err) {
+        } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);

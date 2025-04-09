@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React, { useState, useEffect } from 'react';
 import { Employee, WorkSession, Project, Task } from '../types';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, parseISO, isWithinInterval, addDays } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Clock, TrendingUp, Calendar, CheckCircle, ArrowUp, BarChart2 } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval,  isWithinInterval} from 'date-fns';
+import { BarChart, Bar,  ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Clock } from 'lucide-react';
 import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
 interface EmployeeDashboardProps {

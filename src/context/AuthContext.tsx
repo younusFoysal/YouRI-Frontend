@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { AuthContextType, User, Organization } from '../types';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import useAxiosCommon from "../hook/useAxiosCommon.ts";
 import { toast } from "sonner";
 
@@ -10,6 +10,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true); // Start with loading true
+    const [user, setUser] = useState<User | null>(null);
+    const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
     const axiosCommon = useAxiosCommon();
     const queryClient = useQueryClient();
     const hasInitialized = useRef(false);
@@ -17,13 +20,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initialize user and organization from localStorage
     useEffect(() => {
         if (hasInitialized.current) return;
-        hasInitialized.current = true;
 
         // Load user from localStorage
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             try {
                 const parsedUser = JSON.parse(storedUser);
+                setUser(parsedUser);
                 queryClient.setQueryData(['user'], parsedUser);
             } catch (error) {
                 console.error('Error parsing stored user:', error);
@@ -36,29 +39,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (selectedOrg) {
             try {
                 const parsedOrg = JSON.parse(selectedOrg);
+                setSelectedOrganization(parsedOrg);
                 queryClient.setQueryData(['selectedOrganization'], parsedOrg);
             } catch (error) {
                 console.error('Error parsing stored organization:', error);
                 localStorage.removeItem('selectedOrganization');
             }
         }
+
+        hasInitialized.current = true;
+        setLoading(false); // Set loading to false after initialization
     }, [queryClient]);
-
-    // User query with proper typing
-    const { data: user = null } = useQuery<User | null>({
-        queryKey: ['user'],
-        enabled: false, // Don't fetch automatically, we'll manage this manually
-        staleTime: Infinity, // Don't refetch automatically
-        initialData: null
-    });
-
-    // Selected organization query with proper typing
-    const { data: selectedOrganization = null } = useQuery<Organization | null>({
-        queryKey: ['selectedOrganization'],
-        enabled: false, // Don't fetch automatically, we'll manage this manually
-        staleTime: Infinity, // Don't refetch automatically
-        initialData: null
-    });
 
     // Login mutation
     const loginMutation = useMutation({
@@ -72,6 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return response.data.data as User;
         },
         onSuccess: (userData) => {
+            setUser(userData);
             queryClient.setQueryData(['user'], userData);
             localStorage.setItem('user', JSON.stringify(userData));
             setError(null);
@@ -106,17 +98,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             // Automatically log in the user after successful registration
             try {
+                setLoading(true);
                 await loginMutation.mutateAsync({
                     email: data.email,
                     password: data.password
                 });
+                setLoading(false);
             } catch (error) {
                 // If login fails after registration, at least store the basic user data
                 // but the user will need to log in manually to get a token
                 const basicUserData = data.userData;
+                setUser(basicUserData);
                 queryClient.setQueryData(['user'], basicUserData);
                 localStorage.setItem('user', JSON.stringify(basicUserData));
                 toast.error("Auto-login failed. Please log in manually.");
+                setLoading(false);
             }
         },
         onError: (error: any) => {
@@ -128,23 +124,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const login = async (email: string, password: string) => {
         try {
+            setLoading(true);
             await loginMutation.mutateAsync({ email, password });
+            setLoading(false);
             return true;
         } catch (error) {
+            setLoading(false);
             return false;
         }
     };
 
     const register = async (name: string, email: string, password: string, position?: string, department?: string) => {
         try {
+            setLoading(true);
             await registerMutation.mutateAsync({ name, email, password, position, department });
+            // Note: Loading state will be handled in the onSuccess callback when we do the auto-login
             return true;
         } catch (error) {
+            setLoading(false);
             return false;
         }
     };
 
     const logout = () => {
+        setUser(null);
+        setSelectedOrganization(null);
         queryClient.setQueryData(['user'], null);
         queryClient.setQueryData(['selectedOrganization'], null);
         localStorage.removeItem('user');
@@ -157,12 +161,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const updateUser = (updatedUser: User) => {
+        setUser(updatedUser);
         queryClient.setQueryData(['user'], updatedUser);
         localStorage.setItem('user', JSON.stringify(updatedUser));
         toast.success("User profile updated successfully.");
     };
 
     const selectOrganization = (organization: Organization) => {
+        setSelectedOrganization(organization);
         queryClient.setQueryData(['selectedOrganization'], organization);
         localStorage.setItem('selectedOrganization', JSON.stringify(organization));
         toast.success(`Organization "${organization.name}" selected.`);
@@ -178,7 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } = {
         user,
         isAuthenticated: !!user,
-        loading: loginMutation.isPending || registerMutation.isPending,
+        loading: loading || loginMutation.isPending || registerMutation.isPending,
         error,
         selectedOrganization
     };

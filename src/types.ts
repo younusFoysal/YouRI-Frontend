@@ -230,6 +230,24 @@ export interface StatisticsProps {
   onViewSession: (session: WorkSession) => void;
 }
 
+export type Stats = {
+  activeEmployees: number;
+  inactiveEmployees: number;
+  onLeaveEmployees: number;
+  completedProjects: number;
+  inProgressProjects: number;
+  planningProjects: number;
+  onHoldProjects: number;
+  todoTasks: number;
+  inProgressTasks: number;
+  reviewTasks: number;
+  completedTasks: number;
+  totalBudget: number;
+  totalHoursLogged: number;
+  activeHours?: number;
+  idleHours?: number;
+};
+
 
 
 

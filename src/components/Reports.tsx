@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { format, parseISO, isWithinInterval } from 'date-fns';
-import { Employee, WorkSession, Project } from '../types';
-import {Calendar, Search, Filter, ArrowDown, BarChart2, Download, Globe, Clock} from 'lucide-react';
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, {useState, useEffect} from 'react';
+import {format,  isWithinInterval} from 'date-fns';
+import {Employee, WorkSession, Project} from '../types';
+import { ArrowDown, BarChart2, Download, Globe, Clock} from 'lucide-react';
 import toast from 'react-hot-toast';
+import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
 interface ReportsProps {
     organizationId?: string;
 }
 
-const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
+const Reports: React.FC<ReportsProps> = ({organizationId}) => {
     const [reportType, setReportType] = useState<'time' | 'apps'>('time');
     const [view, setView] = useState<'daily' | 'weekly'>('daily');
     const [selectedProject, setSelectedProject] = useState<string>('all');
@@ -27,6 +31,7 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
     const [loading, setLoading] = useState(true);
     const [reportData, setReportData] = useState<any[]>([]);
     const [appsReportData, setAppsReportData] = useState<any[]>([]);
+    const axiosSecure = useAxiosSecure();
 
     useEffect(() => {
         fetchData();
@@ -46,155 +51,35 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
         setLoading(true);
         try {
             // Fetch employees
-            let employeesUrl = 'http://localhost:5000/api/employees';
+            let employeesUrl = '/employees';
             if (organizationId) {
                 employeesUrl += `?organizationId=${organizationId}`;
             }
-            const employeesResponse = await fetch(employeesUrl);
-            const employeesData = await employeesResponse.json();
+            const employeesResponse = await axiosSecure.get(employeesUrl);
+            const employeesData = employeesResponse.data.data || [];
             setEmployees(employeesData);
 
             // Fetch projects
-            let projectsUrl = 'http://localhost:5000/api/projects';
+            let projectsUrl = '/projects';
             if (organizationId) {
                 projectsUrl += `?organizationId=${organizationId}`;
             }
-            const projectsResponse = await fetch(projectsUrl);
-            const projectsData = await projectsResponse.json();
+            const projectsResponse = await axiosSecure.get(projectsUrl);
+            const projectsData = projectsResponse.data.data || [];
             setProjects(projectsData);
 
             // Fetch sessions for the date range
-            const sessionsResponse = await fetch(`http://localhost:5000/api/sessions?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`);
-            const sessionsData = await sessionsResponse.json();
+            const sessionsResponse = await axiosSecure.get(`/sessions?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`);
+            const sessionsData = sessionsResponse.data.data || [];
             setSessions(sessionsData);
 
             setLoading(false);
         } catch (error) {
             console.error('Error fetching data:', error);
             setLoading(false);
+            toast.error('Failed to fetch report data');
         }
     };
-
-    // const generateReport = () => {
-    //     // Filter sessions based on selected project and employee
-    //     let filteredSessions = [...sessions];
-    //
-    //     if (selectedProject !== 'all') {
-    //         filteredSessions = filteredSessions.filter(session => session.projectId === selectedProject);
-    //     }
-    //
-    //     if (selectedEmployee !== 'all') {
-    //         filteredSessions = filteredSessions.filter(session => session.employeeId === selectedEmployee);
-    //     }
-    //
-    //     // Filter by date range
-    //     filteredSessions = filteredSessions.filter(session => {
-    //         const sessionDate = new Date(session.startTime);
-    //         return isWithinInterval(sessionDate, {
-    //             start: new Date(`${dateRange.startDate}T00:00:00`),
-    //             end: new Date(`${dateRange.endDate}T23:59:59`)
-    //         });
-    //     });
-    //
-    //     // Group sessions by employee and date
-    //     const employeeData: Record<string, any> = {};
-    //
-    //     filteredSessions.forEach(session => {
-    //         const employeeId = session.employeeId;
-    //         const sessionDate = format(new Date(session.startTime), 'yyyy-MM-dd');
-    //
-    //         if (!employeeData[employeeId]) {
-    //             employeeData[employeeId] = {
-    //                 employee: employees.find(e => e._id === employeeId),
-    //                 dates: {}
-    //             };
-    //         }
-    //
-    //         if (!employeeData[employeeId].dates[sessionDate]) {
-    //             employeeData[employeeId].dates[sessionDate] = {
-    //                 totalTime: 0,
-    //                 activeTime: 0,
-    //                 idleTime: 0,
-    //                 sessions: []
-    //             };
-    //         }
-    //
-    //         employeeData[employeeId].dates[sessionDate].totalTime += (session.activeTime + session.idleTime);
-    //         employeeData[employeeId].dates[sessionDate].activeTime += session.activeTime;
-    //         employeeData[employeeId].dates[sessionDate].idleTime += session.idleTime;
-    //         employeeData[employeeId].dates[sessionDate].sessions.push(session);
-    //     });
-    //
-    //     // Convert to array format for the report
-    //     const reportItems: any[] = [];
-    //
-    //     Object.keys(employeeData).forEach(employeeId => {
-    //         const employeeInfo = employeeData[employeeId];
-    //
-    //         if (view === 'daily') {
-    //             // For daily view, show each day separately
-    //             Object.keys(employeeInfo.dates).forEach(date => {
-    //                 const dateData = employeeInfo.dates[date];
-    //                 const totalSeconds = dateData.totalTime;
-    //                 const activeSeconds = dateData.activeTime;
-    //                 const idleSeconds = dateData.idleTime;
-    //                 const activityPercentage = totalSeconds > 0 ? Math.round((activeSeconds / totalSeconds) * 100) : 0;
-    //
-    //                 reportItems.push({
-    //                     date,
-    //                     employee: employeeInfo.employee,
-    //                     totalTime: totalSeconds,
-    //                     activeTime: activeSeconds,
-    //                     idleTime: idleSeconds,
-    //                     neutralTime: totalSeconds - activeSeconds - idleSeconds,
-    //                     activityPercentage
-    //                 });
-    //             });
-    //         } else {
-    //             // For weekly view, aggregate all days
-    //             let totalSeconds = 0;
-    //             let activeSeconds = 0;
-    //             let idleSeconds = 0;
-    //
-    //             Object.keys(employeeInfo.dates).forEach(date => {
-    //                 const dateData = employeeInfo.dates[date];
-    //                 totalSeconds += dateData.totalTime;
-    //                 activeSeconds += dateData.activeTime;
-    //                 idleSeconds += dateData.idleTime;
-    //             });
-    //
-    //             const activityPercentage = totalSeconds > 0 ? Math.round((activeSeconds / totalSeconds) * 100) : 0;
-    //
-    //             reportItems.push({
-    //                 date: `${dateRange.startDate} to ${dateRange.endDate}`,
-    //                 employee: employeeInfo.employee,
-    //                 totalTime: totalSeconds,
-    //                 activeTime: activeSeconds,
-    //                 idleTime: idleSeconds,
-    //                 neutralTime: totalSeconds - activeSeconds - idleSeconds,
-    //                 activityPercentage
-    //             });
-    //         }
-    //     });
-    //
-    //     // Sort the report items
-    //     reportItems.sort((a, b) => {
-    //         if (sortBy === 'date') {
-    //             return new Date(b.date).getTime() - new Date(a.date).getTime();
-    //         } else if (sortBy === 'name') {
-    //             return a.employee.name.localeCompare(b.employee.name);
-    //         } else if (sortBy === 'time') {
-    //             return b.totalTime - a.totalTime;
-    //         } else if (sortBy === 'activity') {
-    //             return b.activityPercentage - a.activityPercentage;
-    //         }
-    //         return 0;
-    //     });
-    //
-    //     setReportData(reportItems);
-    // };
-
-
 
     const generateTimeReport = () => {
         // Filter sessions based on selected project and employee
@@ -205,28 +90,46 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
         }
 
         if (selectedEmployee !== 'all') {
-            filteredSessions = filteredSessions.filter(session => session.employeeId === selectedEmployee);
+            filteredSessions = filteredSessions.filter(session => {
+                const empId = typeof session.employeeId === 'object' ? session.employeeId._id : session.employeeId;
+                return empId === selectedEmployee;
+            });
         }
 
         // Filter by date range
         filteredSessions = filteredSessions.filter(session => {
-            const sessionDate = new Date(session.startTime);
-            return isWithinInterval(sessionDate, {
-                start: new Date(`${dateRange.startDate}T00:00:00`),
-                end: new Date(`${dateRange.endDate}T23:59:59`)
-            });
+            if (!session.startTime) return false;
+
+            try {
+                const sessionDate = new Date(session.startTime);
+                return isWithinInterval(sessionDate, {
+                    start: new Date(`${dateRange.startDate}T00:00:00`),
+                    end: new Date(`${dateRange.endDate}T23:59:59`)
+                });
+            } catch (error) {
+                console.error('Invalid date format:', session.startTime);
+                return false;
+            }
         });
 
         // Group sessions by employee and date
         const employeeData: Record<string, any> = {};
 
         filteredSessions.forEach(session => {
-            const employeeId = session.employeeId;
+            if (!session.employeeId || !session.startTime) return;
+
+            const employeeId = typeof session.employeeId === 'object' ? session.employeeId._id : session.employeeId;
+
             const sessionDate = format(new Date(session.startTime), 'yyyy-MM-dd');
 
             if (!employeeData[employeeId]) {
+                // const employee = employees.find(e => e._id === employeeId);
+                const employee = typeof session.employeeId === 'object' ? session.employeeId :
+                    employees.find(e => e._id === employeeId);
+                if (!employee) return;
+
                 employeeData[employeeId] = {
-                    employee: employees.find(e => e._id === employeeId),
+                    employee,
                     dates: {}
                 };
             }
@@ -240,9 +143,12 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                 };
             }
 
-            employeeData[employeeId].dates[sessionDate].totalTime += (session.activeTime + session.idleTime);
-            employeeData[employeeId].dates[sessionDate].activeTime += session.activeTime;
-            employeeData[employeeId].dates[sessionDate].idleTime += session.idleTime;
+            const activeTime = session.activeTime || 0;
+            const idleTime = session.idleTime || 0;
+
+            employeeData[employeeId].dates[sessionDate].totalTime += (activeTime + idleTime);
+            employeeData[employeeId].dates[sessionDate].activeTime += activeTime;
+            employeeData[employeeId].dates[sessionDate].idleTime += idleTime;
             employeeData[employeeId].dates[sessionDate].sessions.push(session);
         });
 
@@ -287,13 +193,22 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                 const activityPercentage = totalSeconds > 0 ? Math.round((activeSeconds / totalSeconds) * 100) : 0;
 
                 reportItems.push({
-                    date: `${dateRange.startDate} to ${dateRange.endDate}`,
+                    date: format(new Date(dateRange.startDate), 'yyyy-MM-dd'),
+                    dateRange: `${dateRange.startDate} to ${dateRange.endDate}`,
                     employee: employeeInfo.employee,
                     totalTime: totalSeconds,
                     activeTime: activeSeconds,
                     idleTime: idleSeconds,
                     neutralTime: totalSeconds - activeSeconds - idleSeconds,
                     activityPercentage
+
+                    //date: `${dateRange.startDate} to ${dateRange.endDate}`,
+                    // employee: employeeInfo.employee,
+                    // totalTime: totalSeconds,
+                    // activeTime: activeSeconds,
+                    // idleTime: idleSeconds,
+                    // neutralTime: totalSeconds - activeSeconds - idleSeconds,
+                    // activityPercentage
                 });
             }
         });
@@ -324,32 +239,51 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
         }
 
         if (selectedEmployee !== 'all') {
-            filteredSessions = filteredSessions.filter(session => session.employeeId === selectedEmployee);
+            filteredSessions = filteredSessions.filter(session => {
+                const empId = typeof session.employeeId === 'object' ? session.employeeId._id : session.employeeId;
+                return empId === selectedEmployee;
+            });
         }
 
         // Filter by date range
         filteredSessions = filteredSessions.filter(session => {
-            const sessionDate = new Date(session.startTime);
-            return isWithinInterval(sessionDate, {
-                start: new Date(`${dateRange.startDate}T00:00:00`),
-                end: new Date(`${dateRange.endDate}T23:59:59`)
-            });
+            if (!session.startTime) return false;
+
+            try {
+                const sessionDate = new Date(session.startTime);
+                return isWithinInterval(sessionDate, {
+                    start: new Date(`${dateRange.startDate}T00:00:00`),
+                    end: new Date(`${dateRange.endDate}T23:59:59`)
+                });
+            } catch (error) {
+                console.error('Invalid date format:', session.startTime);
+                return false;
+            }
         });
 
         // Group by date and employee
         const dateEmployeeMap: Record<string, Record<string, any>> = {};
 
         filteredSessions.forEach(session => {
+            if (!session.startTime || !session.employeeId) return;
+
             const date = format(new Date(session.startTime), 'yyyy-MM-dd');
-            const employeeId = session.employeeId;
+            // const employeeId = session.employeeId;
+            const employeeId = typeof session.employeeId === 'object' ? session.employeeId._id : session.employeeId;
+
 
             if (!dateEmployeeMap[date]) {
                 dateEmployeeMap[date] = {};
             }
 
+            //const employee = employees.find(e => e._id === employeeId);
+            const employee = typeof session.employeeId === 'object' ? session.employeeId :
+                employees.find(e => e._id === employeeId);
+            if (!employee) return;
+
             if (!dateEmployeeMap[date][employeeId]) {
                 dateEmployeeMap[date][employeeId] = {
-                    employee: employees.find(e => e._id === employeeId),
+                    employee,
                     totalTime: 0,
                     applications: {},
                     urls: {}
@@ -357,44 +291,56 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
             }
 
             // Add session time
-            dateEmployeeMap[date][employeeId].totalTime += (session.activeTime + session.idleTime);
+            const activeTime = session.activeTime || 0;
+            const idleTime = session.idleTime || 0;
+            dateEmployeeMap[date][employeeId].totalTime += (activeTime + idleTime);
 
             // Process applications
-            session.applications.forEach(app => {
-                if (!dateEmployeeMap[date][employeeId].applications[app.name]) {
-                    dateEmployeeMap[date][employeeId].applications[app.name] = {
-                        name: app.name,
-                        icon: app.icon,
-                        timeSpent: 0
-                    };
-                }
-                dateEmployeeMap[date][employeeId].applications[app.name].timeSpent += app.timeSpent;
-            });
+            if (session.applications && Array.isArray(session.applications)) {
+                session.applications.forEach(app => {
+                    if (!app.name) return;
+
+                    if (!dateEmployeeMap[date][employeeId].applications[app.name]) {
+                        dateEmployeeMap[date][employeeId].applications[app.name] = {
+                            name: app.name,
+                            icon: app.icon || '',
+                            timeSpent: 0
+                        };
+                    }
+                    dateEmployeeMap[date][employeeId].applications[app.name].timeSpent += (app.timeSpent || 0);
+                });
+            }
 
             // Process URLs
-            session.links.forEach(link => {
-                const urlObj = new URL(link.url);
-                const domain = urlObj.hostname;
+            if (session.links && Array.isArray(session.links)) {
+                session.links.forEach(link => {
+                    if (!link.url) return;
 
-                if (!dateEmployeeMap[date][employeeId].urls[domain]) {
-                    dateEmployeeMap[date][employeeId].urls[domain] = {
-                        domain,
-                        url: link.url,
-                        title: link.title,
-                        timeSpent: 0,
-                        visits: 0
-                    };
-                }
+                    try {
+                        const urlObj = new URL(link.url);
+                        const domain = urlObj.hostname;
 
-                // Estimate time spent on URL (in a real app this would be tracked)
-                // Here we're just incrementing visit count
-                dateEmployeeMap[date][employeeId].urls[domain].visits += 1;
+                        if (!dateEmployeeMap[date][employeeId].urls[domain]) {
+                            dateEmployeeMap[date][employeeId].urls[domain] = {
+                                domain,
+                                url: link.url,
+                                title: link.title || domain,
+                                timeSpent: 0,
+                                visits: 0
+                            };
+                        }
 
-                // Assign some estimated time (this is just for demo)
-                // In a real app, you'd track actual time spent on each URL
-                const estimatedTimePerVisit = 300; // 5 minutes in seconds
-                dateEmployeeMap[date][employeeId].urls[domain].timeSpent += estimatedTimePerVisit;
-            });
+                        // Increment visit count
+                        dateEmployeeMap[date][employeeId].urls[domain].visits += 1;
+
+                        // Assign some estimated time (this is just for demo)
+                        const estimatedTimePerVisit = 300; // 5 minutes in seconds
+                        dateEmployeeMap[date][employeeId].urls[domain].timeSpent += estimatedTimePerVisit;
+                    } catch (error) {
+                        console.error('Invalid URL:', link.url);
+                    }
+                });
+            }
         });
 
         // Convert to array format for the report
@@ -425,10 +371,6 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
         setAppsReportData(reportItems);
     };
 
-
-
-
-
     const formatTime = (seconds: number): string => {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
@@ -445,17 +387,15 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
     };
 
     const handleExport = () => {
-        // In a real app, this would generate a CSV or Excel file
         toast.success('Export functionality would be implemented here');
     };
 
     const handleShowGraph = () => {
-        // In a real app, this would show a graph visualization
         toast.success('Graph visualization would be implemented here');
     };
 
     const calculatePercentage = (timeSpent: number, totalTime: number): number => {
-        return Math.round((timeSpent / totalTime) * 100);
+        return totalTime > 0 ? Math.round((timeSpent / totalTime) * 100) : 0;
     };
 
     const getRandomColor = (index: number): string => {
@@ -467,12 +407,8 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
     };
 
     const getAppIcon = (app: any): React.ReactNode => {
-        // For demo purposes, we'll use some placeholder icons
-        // In a real app, you'd use the actual app icons
-        const appNameLower = app.name.toLowerCase();
-
         if (app.icon) {
-            return <img src={app.icon} alt={app.name} className="w-6 h-6" />;
+            return <img src={app.icon} alt={app.name} className="w-6 h-6"/>;
         }
 
         // Fallback to a colored circle with first letter
@@ -480,7 +416,8 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
         const bgColor = getRandomColor(app.name.length);
 
         return (
-            <div className={`w-6 h-6 rounded-full ${bgColor} flex items-center justify-center text-white text-xs font-bold`}>
+            <div
+                className={`w-6 h-6 rounded-full ${bgColor} flex items-center justify-center text-white text-xs font-bold`}>
                 {firstLetter}
             </div>
         );
@@ -488,12 +425,12 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
 
     const getDomainIcon = (domain: string): React.ReactNode => {
         // For demo purposes, we'll use colored circles with first letter
-        // In a real app, you'd use favicon.ico from the domain
         const firstLetter = domain.charAt(0).toUpperCase();
         const bgColor = getRandomColor(domain.length);
 
         return (
-            <div className={`w-6 h-6 rounded-full ${bgColor} flex items-center justify-center text-white text-xs font-bold`}>
+            <div
+                className={`w-6 h-6 rounded-full ${bgColor} flex items-center justify-center text-white text-xs font-bold`}>
                 {firstLetter}
             </div>
         );
@@ -522,7 +459,7 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                                 : 'bg-white text-gray-600 hover:bg-gray-50'
                         }`}
                     >
-                        <Clock size={18} className="inline mr-2" />
+                        <Clock size={18} className="inline mr-2"/>
                         Time Report
                     </button>
                     <button
@@ -533,7 +470,7 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                                 : 'bg-white text-gray-600 hover:bg-gray-50'
                         }`}
                     >
-                        <Globe size={18} className="inline mr-2" />
+                        <Globe size={18} className="inline mr-2"/>
                         Apps & URLs
                     </button>
                 </div>
@@ -583,7 +520,7 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                                 ))}
                             </select>
                             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                <ArrowDown size={16} className="text-gray-400" />
+                                <ArrowDown size={16} className="text-gray-400"/>
                             </div>
                         </div>
                     </div>
@@ -602,7 +539,7 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                                 ))}
                             </select>
                             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                <ArrowDown size={16} className="text-gray-400" />
+                                <ArrowDown size={16} className="text-gray-400"/>
                             </div>
                         </div>
                     </div>
@@ -614,14 +551,14 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                                 type="date"
                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 value={dateRange.startDate}
-                                onChange={(e) => setDateRange({ ...dateRange, startDate: e.target.value })}
+                                onChange={(e) => setDateRange({...dateRange, startDate: e.target.value})}
                             />
                             <span className="text-gray-500">to</span>
                             <input
                                 type="date"
                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 value={dateRange.endDate}
-                                onChange={(e) => setDateRange({ ...dateRange, endDate: e.target.value })}
+                                onChange={(e) => setDateRange({...dateRange, endDate: e.target.value})}
                             />
                         </div>
                     </div>
@@ -643,7 +580,7 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                                     <option value="activity">Activity Percentage</option>
                                 </select>
                                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                    <ArrowDown size={16} className="text-gray-400" />
+                                    <ArrowDown size={16} className="text-gray-400"/>
                                 </div>
                             </div>
                         </div>
@@ -663,21 +600,21 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                 <div className="bg-white rounded-lg shadow-md p-6">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xl font-semibold">
-                            {selectedProject === 'all' ? 'All Projects' : projects.find(p => p._id === selectedProject)?.name}
+                            {selectedProject === 'all' ? 'All Projects' : projects.find(p => p._id === selectedProject)?.name || 'Project'}
                         </h3>
                         <div className="flex space-x-2">
                             <button
                                 onClick={handleShowGraph}
                                 className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center"
                             >
-                                <BarChart2 size={18} className="mr-2" />
+                                <BarChart2 size={18} className="mr-2"/>
                                 Show Graph
                             </button>
                             <button
                                 onClick={handleExport}
                                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center"
                             >
-                                <Download size={18} className="mr-2" />
+                                <Download size={18} className="mr-2"/>
                                 Export
                             </button>
                         </div>
@@ -685,22 +622,33 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
 
                     {reportData.length > 0 ? (
                         <div>
-                            {view === 'daily' && (
+                            {view === 'daily' && reportData.length > 0 && (
                                 <div className="text-lg font-medium mb-4">
-                                    {format(new Date(reportData[0].date), 'd MMM, yyyy')}
+                                    {reportData[0].dateRange || format(new Date(reportData[0].date), 'd MMM, yyyy')}
                                 </div>
                             )}
+
 
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
                                     <tr className="border-b border-gray-200">
                                         <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Member</th>
-                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Time Worked</th>
-                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Idle Time</th>
-                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Average Activity</th>
-                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Active Time</th>
-                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Neutral Time</th>
+                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Time
+                                            Worked
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Idle
+                                            Time
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Average
+                                            Activity
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Active
+                                            Time
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Neutral
+                                            Time
+                                        </th>
                                     </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
@@ -708,12 +656,22 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                                         <tr key={index} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
-                                                    <img
-                                                        src={item.employee.avatar}
-                                                        alt={item.employee.name}
-                                                        className="w-10 h-10 rounded-full object-cover mr-3"
-                                                    />
-                                                    <div className="font-medium">{item.employee.name}</div>
+                                                    {item?.employee?.avatar ? (
+                                                        <img
+                                                            src={item.employee.avatar}
+                                                            alt={item.employee.name}
+                                                            className="w-10 h-10 rounded-full object-cover mr-3"
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                                            <span className="text-gray-500 font-medium">
+                                                                {item?.employee?.name?.charAt(0) || '?'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <div
+                                                        className="font-medium">{item?.employee?.name || 'Unknown Employee'}</div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
@@ -730,7 +688,7 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                                                                 item.activityPercentage > 70 ? 'bg-teal-500' :
                                                                     item.activityPercentage > 30 ? 'bg-yellow-500' : 'bg-red-500'
                                                             }`}
-                                                            style={{ width: `${item.activityPercentage}%` }}
+                                                            style={{width: `${item.activityPercentage}%`}}
                                                         ></div>
                                                     </div>
                                                     <span>{item.activityPercentage}%</span>
@@ -759,14 +717,14 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
                 <div className="bg-white rounded-lg shadow-md p-6">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xl font-semibold">
-                            {selectedProject === 'all' ? 'All Projects' : projects.find(p => p._id === selectedProject)?.name}
+                            {selectedProject === 'all' ? 'All Projects' : projects.find(p => p._id === selectedProject)?.name || 'Project'}
                         </h3>
                         <div className="flex space-x-2">
                             <button
                                 onClick={handleExport}
                                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center"
                             >
-                                <Download size={18} className="mr-2" />
+                                <Download size={18} className="mr-2"/>
                                 Export
                             </button>
                         </div>
@@ -774,93 +732,120 @@ const Reports: React.FC<ReportsProps> = ({ organizationId }) => {
 
                     {appsReportData.length > 0 ? (
                         <div className="space-y-8">
-                            {appsReportData.map((item, index) => (
-                                <div key={index} className="border-l-4 border-blue-500 pl-4">
-                                    <div className="text-lg font-medium mb-4">
-                                        {format(new Date(item.date), 'd MMM, yyyy')}
-                                    </div>
+                    {appsReportData.map((item, index) => (
+                        <div key={index} className="border-l-4 border-blue-500 pl-4">
+                    <div className="text-lg font-medium mb-4">
+                        {format(new Date(item.date), 'd MMM, yyyy')}
+                    </div>
 
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div className="flex items-center">
-                                            <img
-                                                src={item.employee.avatar}
-                                                alt={item.employee.name}
-                                                className="w-10 h-10 rounded-full object-cover mr-3"
-                                            />
-                                            <div className="font-medium">{item.employee.name}</div>
-                                        </div>
-                                        <div className="text-sm text-gray-500">
-                                            Total Time: <span className="font-medium">{formatTime(item.totalTime)}</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Applications */}
-                                    <div className="mb-6">
-                                        <h4 className="text-md font-medium mb-3">Apps</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                            {item.applications.map((app: any, appIndex: number) => {
-                                                const percentage = calculatePercentage(app.timeSpent, item.totalTime);
-                                                return (
-                                                    <div key={appIndex} className="bg-gray-50 p-4 rounded-lg">
-                                                        <div className="flex items-center mb-2">
-                                                            {getAppIcon(app)}
-                                                            <div className="ml-2">
-                                                                <div className="font-medium">{app.name}</div>
-                                                                <div className="text-sm text-gray-500">{formatTime(app.timeSpent)}</div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                                            <div
-                                                                className="bg-blue-500 h-2 rounded-full"
-                                                                style={{ width: `${percentage}%` }}
-                                                            ></div>
-                                                        </div>
-                                                        <div className="text-xs text-right mt-1 text-gray-500">{percentage}%</div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    {/* URLs */}
-                                    <div>
-                                        <h4 className="text-md font-medium mb-3">URLs</h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                            {item.urls.map((url: any, urlIndex: number) => {
-                                                const percentage = calculatePercentage(url.timeSpent, item.totalTime);
-                                                return (
-                                                    <div key={urlIndex} className="bg-gray-50 p-4 rounded-lg">
-                                                        <div className="flex items-center mb-2">
-                                                            {getDomainIcon(url.domain)}
-                                                            <div className="ml-2 truncate">
-                                                                <div className="font-medium truncate">{url.domain}</div>
-                                                                <div className="text-sm text-gray-500">{formatTime(url.timeSpent)}</div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                                            <div
-                                                                className="bg-green-500 h-2 rounded-full"
-                                                                style={{ width: `${percentage}%` }}
-                                                            ></div>
-                                                        </div>
-                                                        <div className="text-xs text-right mt-1 text-gray-500">{percentage}%</div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center">
+                            {item.employee?.avatar ? (
+                                <img
+                                    src={item.employee.avatar}
+                                    alt={item.employee.name}
+                                    className="w-10 h-10 rounded-full object-cover mr-3"
+                                />
+                            ) : (
+                                <div
+                                    className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mr-3">
+                                                    <span className="text-gray-500 font-medium">
+                                                        {item.employee?.name?.charAt(0) || '?'}
+                                                    </span>
                                 </div>
-                            ))}
+                            )}
+                            <div className="font-medium">{item.employee?.name || 'Unknown Employee'}</div>
                         </div>
-                    ) : (
-                        <div className="text-center py-8 text-gray-500">
-                            No data available for the selected filters. Try adjusting your filters or date range.
+                        <div className="text-sm text-gray-500">
+                            Total Time: <span className="font-medium">{formatTime(item.totalTime)}</span>
                         </div>
-                    )}
+                    </div>
+
+                    {/* Applications */}
+                    <div className="mb-6">
+                        <h4 className="text-md font-medium mb-3">Apps</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {item.applications && item.applications.length > 0 ? (
+                                item.applications.map((app: any, appIndex: number) => {
+                                    const percentage = calculatePercentage(app.timeSpent, item.totalTime);
+                                    return (
+                                        <div key={appIndex} className="bg-gray-50 p-4 rounded-lg">
+                                            <div className="flex items-center mb-2">
+                                                {getAppIcon(app)}
+                                                <div className="ml-2">
+                                                    <div className="font-medium">{app.name}</div>
+                                                    <div
+                                                        className="text-sm text-gray-500">{formatTime(app.timeSpent)}</div>
+                                                </div>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-blue-500 h-2 rounded-full"
+                                                    style={{width: `${percentage}%`}}
+                                                ></div>
+                                            </div>
+                                            <div className="text-xs text-right mt-1 text-gray-500">{percentage}%</div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="col-span-4 text-center py-4 text-gray-500">
+                                    No application data available
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* URLs */}
+                    <div>
+                        <h4 className="text-md font-medium mb-3">URLs</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {item.urls && item.urls.length > 0 ? (
+                                item.urls.map((url: any, urlIndex: number) => {
+                                    const percentage = calculatePercentage(url.timeSpent, item.totalTime);
+                                    return (
+                                        <div key={urlIndex} className="bg-gray-50 p-4 rounded-lg">
+                                            <div className="flex items-center mb-2">
+                                                {getDomainIcon(url.domain)}
+                                                <div className="ml-2 truncate">
+                                                    <div className="font-medium truncate">{url.domain}</div>
+                                                    <div
+                                                        className="text-sm text-gray-500">{formatTime(url.timeSpent)}</div>
+                                                </div>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-green-500 h-2 rounded-full"
+                                                    style={{width: `${percentage}%`}}
+                                                ></div>
+                                            </div>
+                                            <div className="text-xs text-right mt-1 text-gray-500">{percentage}%</div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="col-span-4 text-center py-4 text-gray-500">
+                                    No URL data available
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
-            )}
+            ))}
         </div>
-    );
+    )
+:
+    (
+        <div className="text-center py-8 text-gray-500">
+            No data available for the selected filters. Try adjusting your filters or date range.
+        </div>
+    )
+}
+</div>
+)}
+</div>
+)
+    ;
 };
 
 export default Reports;

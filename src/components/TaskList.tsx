@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
 import { Task, Employee, Project } from '../types';
-import { Search, ArrowUpDown, Plus, X, Calendar, Clock, Tag, User, CheckCircle } from 'lucide-react';
+import { Search, ArrowUpDown, Plus, X, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import useAxiosSecure from "../hook/useAxiosSecure.ts";
+import {useAuth} from "../context/AuthContext.tsx";
 
 interface TaskListProps {
   projectId?: string;
@@ -14,6 +16,7 @@ type SortField = 'title' | 'status' | 'priority' | 'dueDate';
 type SortOrder = 'asc' | 'desc';
 
 const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask }) => {
+  const { state } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -26,6 +29,7 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
+    organizationId: state.selectedOrganization?._id || '',
     projectId: projectId || '',
     assigneeId: employeeId || '',
     status: 'todo',
@@ -48,7 +52,7 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      let url = 'http://localhost:3000/api/v1/tasks';
+      let url = '/tasks';
       const params = new URLSearchParams();
       
       if (projectId) params.append('projectId', projectId);
@@ -70,7 +74,7 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
 
   const fetchProjects = async () => {
     try {
-      const response = await axiosSecure.get('http://localhost:3000/api/v1/projects');
+      const response = await axiosSecure.get('/projects');
       const data = await response.data.data;
       setProjects(data);
       
@@ -85,7 +89,7 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
 
   const fetchEmployees = async () => {
     try {
-      const response = await axiosSecure.get('http://localhost:3000/api/v1/employees');
+      const response = await axiosSecure.get('/employees');
       const data = await response.data.data;
       setEmployees(data);
     } catch (error) {
@@ -105,19 +109,14 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axiosSecure.post('http://localhost:3000/api/v1/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newTask),
-      });
+      const response = await axiosSecure.post('/tasks', newTask);
 
-      if (response.status === 201) {
+      if (response.status === 200) {
         setShowAddModal(false);
         setNewTask({
           title: '',
           description: '',
+          organizationId: state.selectedOrganization?._id || '',
           projectId: projectId || '',
           assigneeId: employeeId || '',
           status: 'todo',
@@ -126,7 +125,7 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
           estimatedHours: 0,
           tags: []
         });
-        fetchTasks();
+        await fetchTasks();
       } else {
         console.error('Failed to add task');
       }
@@ -182,18 +181,18 @@ const TaskList: React.FC<TaskListProps> = ({ projectId, employeeId, onSelectTask
     }
   };
 
-  const getProjectName = (id: string) => {
+  const getProjectName = (id?: any) => {
     const project = projects.find(p => p._id === id._id);
     return project ? project.name : 'Unknown Project';
   };
 
-  const getEmployeeName = (id?: string) => {
+  const getEmployeeName = (id?: any) => {
     if (!id) return 'Unassigned';
     const employee = employees.find(e => e._id === id._id);
     return employee ? employee.name : 'Unknown Employee';
   };
 
-  const getEmployeeAvatar = (id?: string) => {
+  const getEmployeeAvatar = (id?: any) => {
     if (!id) return '';
     const employee = employees.find(e => e._id === id._id);
     return employee ? employee.avatar : '';

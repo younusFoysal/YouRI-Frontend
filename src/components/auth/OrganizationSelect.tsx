@@ -36,13 +36,6 @@ const OrganizationSelect: React.FC = () => {
     };
 
 
-    // const selectOrganization = (orgId: string) => {
-    //   const selectedOrg = organizations.find(org => org._id === orgId);
-    //   if (selectedOrg) {
-    //     setOrganization(selectedOrg);
-    //     navigate('/dashboard');
-    //   }
-    // };
 
     console.log(state)
 

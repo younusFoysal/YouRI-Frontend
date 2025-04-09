@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import EmployeeList from '../../components/EmployeeList';
-import {useEffect, useState} from "react";
+import React, {useEffect, useState} from "react";
 import {Employee} from "../../types.ts";
 import {useAuth} from "../../context/AuthContext.tsx";
 import {useNavigate} from "react-router-dom";
+import useAxiosSecure from "../../hook/useAxiosSecure.ts";
 
 const Employees: React.FC = () => {
 
@@ -76,6 +78,8 @@ const Employees: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const { state } = useAuth();
     const navigate = useNavigate();
+    const axiosSecure = useAxiosSecure();
+
 
     useEffect(() => {
         if (!state.selectedOrganization) {
@@ -93,22 +97,16 @@ const Employees: React.FC = () => {
             setLoading(true);
             setError(null);
 
-            const response = await fetch(
-                `http://localhost:5000/api/employees?organizationId=${state.selectedOrganization._id}`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${state.user?.token}`
-                    }
-                }
-            );
+            const response = await axiosSecure.get(`/employees/organization/${state.selectedOrganization._id}`,);
 
-            if (!response.ok) {
+            if (response.status !== 200) {
                 throw new Error('Failed to fetch employees');
             }
 
-            const data = await response.json();
+
+            const data = await response.data.data;
             setEmployees(data);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching employees:', error);
             setError(error.message);
         } finally {

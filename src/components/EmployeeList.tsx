@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, {useEffect, useState} from 'react';
 import {Employee, Organization} from '../types';
 import { Mail, Building2, Search, ArrowUpDown, UserPlus, X } from 'lucide-react';
@@ -6,12 +8,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {useAuth} from "../context/AuthContext.tsx";
 import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
-const API_URL = 'http://localhost:5000/api';
+
 
 interface EmployeeListProps {
   employees: Employee[];
   organizationId?: string;
   onSelectEmployee: (employee: Employee) => void;
+  loading: boolean;
+  error: any;
 }
 
 type SortField = 'name' | 'position' | 'department';
@@ -41,16 +45,6 @@ const EmployeeList: React.FC<EmployeeListProps> = ({ employees, organizationId, 
   console.log("OrganizationId", organizationId);
 
 
-  // useEffect(() => {
-  //   const fetchOrgs = async () => {
-  //     const { data } = await axios.get(`${API_URL}/organizations`);
-  //     setOrganizations(data);
-  //     if (data.length > 0 && !selectedOrgId) {
-  //       setSelectedOrgId(data[0]._id);
-  //     }
-  //   };
-  //   fetchOrgs();
-  // }, []);
 
 
   useEffect(() => {

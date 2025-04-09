@@ -1,12 +1,8 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { WorkSession } from '../types';
+import {AddSessionModalProps, WorkSession} from '../types';
+import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
-interface AddSessionModalProps {
-    employeeId: string;
-    onClose: () => void;
-    onSuccess: () => void;
-}
 
 const AddSessionModal: React.FC<AddSessionModalProps> = ({ employeeId, onClose, onSuccess }) => {
     const [sessionData, setSessionData] = useState<Partial<WorkSession>>({
@@ -100,14 +96,24 @@ const AddSessionModal: React.FC<AddSessionModalProps> = ({ employeeId, onClose, 
                 title: 'Tailwind CSS',
                 timestamp: new Date().toISOString()
             }
-        ]
+        ],
+        notes: 'This is a test session. Added from React Web'
     });
+    const axiosSecure = useAxiosSecure();
+
+
+
 
     const formatTimeDisplay = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
         const totalSeconds = hours * 3600 + minutes * 60;
-        const percentage = ((totalSeconds / (sessionData.activeTime + sessionData.idleTime)) * 100).toFixed(1);
+
+        const activeTime = sessionData.activeTime ?? 0;
+        const idleTime = sessionData.idleTime ?? 0;
+        const totalTime = activeTime + idleTime;
+        const percentage = totalTime > 0 ? ((totalSeconds / totalTime) * 100).toFixed(1) : '0.0';
+
         return `${hours}h ${minutes}m (${percentage}%)`;
     };
 
@@ -138,15 +144,9 @@ const AddSessionModal: React.FC<AddSessionModalProps> = ({ employeeId, onClose, 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const response = await fetch('http://localhost:5000/api/sessions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(sessionData),
-            });
+            const response = await axiosSecure.post('/sessions', sessionData );
 
-            if (response.ok) {
+            if (response.status === 201) {
                 onSuccess();
                 onClose();
             }
@@ -182,13 +182,13 @@ const AddSessionModal: React.FC<AddSessionModalProps> = ({ employeeId, onClose, 
                     <div>
                         <label className="block mb-1">Active Time</label>
                         <div className="w-full border rounded p-2 bg-gray-100">
-                            {formatTimeDisplay(sessionData.activeTime)}
+                            {formatTimeDisplay(sessionData.activeTime ?? 0)}
                         </div>
                     </div>
                     <div>
                         <label className="block mb-1">Idle Time</label>
                         <div className="w-full border rounded p-2 bg-gray-100">
-                            {formatTimeDisplay(sessionData.idleTime)}
+                            {formatTimeDisplay(sessionData.idleTime ?? 0)}
                         </div>
                     </div>
                     {/*<div>*/}

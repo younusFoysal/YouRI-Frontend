@@ -87,6 +87,8 @@ export interface User {
 export interface UserOrganization {
   _id: string;
   organizationId: string;
+  organizationName: string;
+  employeeId: string;
   role: 'admin' | 'owner' | 'employee';
   joinedAt: string;
   organization?: Organization;
@@ -95,12 +97,12 @@ export interface UserOrganization {
 export interface WorkSession {
   _id: string;
   employeeId: string;
-  projectId?: string;
-  taskId?: string;
+  projectId?: Project;
+  taskId?: Task;
   startTime: string;
   endTime: string;
   activeTime: number; // in seconds
-  idleTime: number; // in seconds
+  idleTime: number | undefined; // in seconds
   screenshots: Screenshot[];
   applications: Application[];
   links: Link[];
@@ -200,8 +202,8 @@ export type AuthAction =
 
 export interface AuthContextType {
   state: AuthState;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, position?: string, department?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string, position?: string, department?: string) => Promise<boolean>;
   logout: () => void;
   clearError: () => void;
   updateUser: (user: User) => void;
@@ -216,6 +218,38 @@ export interface Organization {
   industry: string;
   role: string;
 }
+
+export interface AddSessionModalProps {
+  employeeId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export interface StatisticsProps {
+  selectedEmployeeId: string;
+  onBack: () => void;
+  onViewSession: (session: WorkSession) => void;
+}
+
+export type Stats = {
+  activeEmployees: number;
+  inactiveEmployees: number;
+  onLeaveEmployees: number;
+  completedProjects: number;
+  inProgressProjects: number;
+  planningProjects: number;
+  onHoldProjects: number;
+  todoTasks: number;
+  inProgressTasks: number;
+  reviewTasks: number;
+  completedTasks: number;
+  totalBudget: number;
+  totalHoursLogged: number;
+  activeHours?: number;
+  idleHours?: number;
+};
+
+
 
 
 

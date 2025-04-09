@@ -1,8 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React, { useState, useEffect } from 'react';
 import { Employee, WorkSession, Project, Task } from '../types';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, parseISO, isWithinInterval, addDays } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { Clock, TrendingUp, Calendar, CheckCircle, ArrowUp, BarChart2 } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval,  isWithinInterval} from 'date-fns';
+import { BarChart, Bar,  ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Clock } from 'lucide-react';
+import useAxiosSecure from "../hook/useAxiosSecure.ts";
 
 interface EmployeeDashboardProps {
     organizationId?: string;
@@ -23,6 +26,8 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ organizationId })
         topEmployeesByActivity: [],
         ongoingTasks: []
     });
+    const axiosSecure = useAxiosSecure();
+
 
     const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
 
@@ -40,30 +45,31 @@ const EmployeeDashboard: React.FC<EmployeeDashboardProps> = ({ organizationId })
         setLoading(true);
         try {
             // Fetch employees
-            const employeesResponse = await fetch('http://localhost:5000/api/employees');
-            const employeesData = await employeesResponse.json();
+            const employeesResponse = await axiosSecure.get('/employees');
+            const employeesData = await employeesResponse.data.data;
             setEmployees(employeesData);
+            console.log(employeesData)
 
             // Fetch projects
-            let projectsUrl = 'http://localhost:5000/api/projects';
+            let projectsUrl = '/projects';
             if (organizationId) {
                 projectsUrl += `?organizationId=${organizationId}`;
             }
-            const projectsResponse = await fetch(projectsUrl);
-            const projectsData = await projectsResponse.json();
+            const projectsResponse = await axiosSecure.get(projectsUrl);
+            const projectsData = await projectsResponse.data.data;
             setProjects(projectsData);
 
             // Fetch tasks
-            const tasksResponse = await fetch('http://localhost:5000/api/tasks');
-            const tasksData = await tasksResponse.json();
+            const tasksResponse = await axiosSecure.get('/tasks');
+            const tasksData = await tasksResponse.data.data;
             setTasks(tasksData);
 
             // Fetch sessions for the last 30 days
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-            const sessionsResponse = await fetch(`http://localhost:5000/api/sessions?startDate=${format(thirtyDaysAgo, 'yyyy-MM-dd')}`);
-            const sessionsData = await sessionsResponse.json();
+            const sessionsResponse = await axiosSecure.get(`/sessions?startDate=${format(thirtyDaysAgo, 'yyyy-MM-dd')}`);
+            const sessionsData = await sessionsResponse.data.data;
             setSessions(sessionsData);
 
             setLoading(false);

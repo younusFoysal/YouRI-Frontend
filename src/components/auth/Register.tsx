@@ -14,6 +14,7 @@ const Register: React.FC = () => {
     const { state, register, clearError } = useAuth();
     const navigate = useNavigate();
 
+
     useEffect(() => {
         // Redirect if already authenticated
         if (state.isAuthenticated) {

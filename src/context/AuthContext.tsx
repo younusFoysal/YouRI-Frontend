@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { AuthContextType, User, Organization } from '../types';
-import axios from "axios";
+import useAxiosCommon from "../hook/useAxiosCommon.ts";
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -11,6 +11,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
+    const axiosCommon = useAxiosCommon();
 
     const hasInitialized = useRef(false);
 
@@ -49,15 +50,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(true);
             setError(null);
 
-            const response = await axios.post('http://localhost:3000/api/v1/auth/login', {
+            const response = await axiosCommon.post('auth/login', {
                 email,
-                password,
+                password
             }, {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                withCredentials: true,
+                withCredentials: true
             });
+
 
             const data = response.data;
 
@@ -82,17 +81,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(true);
             setError(null);
 
-            const response = await fetch('http://localhost:5000/api/auth/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name, email, password, position, department }),
+            const response = await axiosCommon.post('/users/register', {
+                name,
+                email,
+                password,
+                position,
+                department
             });
 
-            const data = await response.json();
 
-            if (!response.ok) {
+            const data = await response.data;
+
+            if (response.status !== 200) {
                 throw new Error(data.message || 'Registration failed');
             }
 

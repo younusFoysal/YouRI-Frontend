@@ -95,13 +95,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 position,
                 department
             });
-            return response.data.data as User;
+            return {
+                userData: response.data.data as User,
+                email,
+                password
+            };
         },
-        onSuccess: (userData) => {
-            queryClient.setQueryData(['user'], userData);
-            localStorage.setItem('user', JSON.stringify(userData));
-            setError(null);
-            toast.success("Registration successful! Welcome to YouRI.");
+        onSuccess: async (data) => {
+            toast.success("Registration successful! Logging you in...");
+
+            // Automatically log in the user after successful registration
+            try {
+                await loginMutation.mutateAsync({
+                    email: data.email,
+                    password: data.password
+                });
+            } catch (error) {
+                // If login fails after registration, at least store the basic user data
+                // but the user will need to log in manually to get a token
+                const basicUserData = data.userData;
+                queryClient.setQueryData(['user'], basicUserData);
+                localStorage.setItem('user', JSON.stringify(basicUserData));
+                toast.error("Auto-login failed. Please log in manually.");
+            }
         },
         onError: (error: any) => {
             const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
